@@ -21,4 +21,29 @@ void QGCSerialPortInfoTest::_testLoadJsonData()
     QVERIFY(!QGCSerialPortInfo::_boardInfoList.isEmpty());
     QVERIFY(!QGCSerialPortInfo::_boardDescriptionFallbackList.isEmpty());
     QVERIFY(!QGCSerialPortInfo::_boardManufacturerFallbackList.isEmpty());
+
+    bool foundFlycoreUsbInfo = false;
+    for (const QGCSerialPortInfo::BoardInfo_t &boardInfo : QGCSerialPortInfo::_boardInfoList) {
+        if (boardInfo.vendorId == 7504 && boardInfo.productId == 24993) {
+            QCOMPARE(boardInfo.boardType, QGCSerialPortInfo::BoardTypePixhawk);
+            QCOMPARE(boardInfo.name, QStringLiteral("AMOVLAB Flycore"));
+            foundFlycoreUsbInfo = true;
+            break;
+        }
+    }
+    QVERIFY(foundFlycoreUsbInfo);
+
+    bool foundFlycoreRuntimeFallback = false;
+    bool foundFlycoreBootloaderFallback = false;
+    for (const QGCSerialPortInfo::BoardRegExpFallback_t &boardFallback : QGCSerialPortInfo::_boardDescriptionFallbackList) {
+        if (boardFallback.regExp == QStringLiteral("^AMOVLAB FLYCORE$")) {
+            QCOMPARE(boardFallback.boardType, QGCSerialPortInfo::BoardTypePixhawk);
+            foundFlycoreRuntimeFallback = true;
+        } else if (boardFallback.regExp == QStringLiteral("^PX4 BL AMOV FLYCORE$")) {
+            QCOMPARE(boardFallback.boardType, QGCSerialPortInfo::BoardTypePixhawk);
+            foundFlycoreBootloaderFallback = true;
+        }
+    }
+    QVERIFY(foundFlycoreRuntimeFallback);
+    QVERIFY(foundFlycoreBootloaderFallback);
 }

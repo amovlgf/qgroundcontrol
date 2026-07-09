@@ -1,0 +1,28 @@
+{
+    "version": 1,
+    "fileType": "FactMetaData",
+    "QGC.MetaData.Facts":
+[
+{
+    "name": "endpointUrl",
+    "shortDesc": "Endpoint URL",
+    "longDesc": "OpenAI-compatible chat completions endpoint used by the MAVLink Console AI assistant.",
+    "type": "string",
+    "default": "http://127.0.0.1:11434/v1/chat/completions"
+},
+{
+    "name": "modelName",
+    "shortDesc": "Model",
+    "longDesc": "Model name sent to the configured OpenAI-compatible endpoint.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "apiKey",
+    "shortDesc": "API key",
+    "longDesc": "Optional bearer token sent to the configured endpoint. Leave empty for local endpoints that do not require authentication.",
+    "type": "string",
+    "default": ""
+}
+]
+}

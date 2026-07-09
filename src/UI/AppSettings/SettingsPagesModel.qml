@@ -49,6 +49,13 @@ ListModel {
     }
 
     ListElement {
+        name: qsTr("AI Console")
+        url: "qrc:/qml/QGroundControl/AppSettings/AIConsoleSettings.qml"
+        iconUrl: "qrc:/InstrumentValueIcons/conversation.svg"
+        pageVisible: function() { return true }
+    }
+
+    ListElement {
         name: qsTr("ADSB Server")
         url: "qrc:/qml/QGroundControl/AppSettings/ADSBServerSettings.qml"
         iconUrl: "qrc:/InstrumentValueIcons/airplane.svg"
@@ -123,4 +130,3 @@ ListModel {
         pageVisible: function() { return ScreenTools.isDebug }
     }
 }
-

@@ -92,6 +92,7 @@ static QMap<int, QString> px4_board_name_map {
     {1110, "jfb_jfb110_default"},
     {1123, "siyi_n7_default"},    
     {1124, "3dr_ctrl-zero-h7-oem-revg_default"},
+    {1218, "amovlab_flycore_default"},
     {5600, "zeroone_x6_default"},
     {7000, "cuav_7-nano_default"},
     {7001, "cuav_fmu-v6x_default"}

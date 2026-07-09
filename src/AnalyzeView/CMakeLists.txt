@@ -12,6 +12,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         LogEntry.h
         MAVLinkChartController.cc
         MAVLinkChartController.h
+        MAVLinkConsoleAIController.cc
+        MAVLinkConsoleAIController.h
         MAVLinkConsoleController.cc
         MAVLinkConsoleController.h
         MAVLinkInspectorController.cc
