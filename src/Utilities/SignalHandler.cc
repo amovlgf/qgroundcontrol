@@ -17,6 +17,7 @@
 
 #include <sys/signal.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 QGC_LOGGING_CATEGORY(SignalHandlerLog, "qgc.utilities.signalhandler")
 

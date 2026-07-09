@@ -1,0 +1,86 @@
+{
+    "version": 1,
+    "fileType": "FactMetaData",
+    "QGC.MetaData.Facts":
+[
+{
+    "name": "authMethod",
+    "shortDesc": "Authentication",
+    "longDesc": "Authentication method used for the configured OpenAI-compatible endpoint.",
+    "type": "uint32",
+    "enumStrings": "API key,OAuth Device Flow",
+    "enumValues": "0,1",
+    "default": 0
+},
+{
+    "name": "endpointUrl",
+    "shortDesc": "Endpoint URL",
+    "longDesc": "OpenAI-compatible chat completions endpoint used by the MAVLink Console AI assistant.",
+    "type": "string",
+    "default": "http://127.0.0.1:11434/v1/chat/completions"
+},
+{
+    "name": "modelName",
+    "shortDesc": "Model",
+    "longDesc": "Model name sent to the configured OpenAI-compatible endpoint.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "apiKey",
+    "shortDesc": "API key",
+    "longDesc": "Personal bearer token sent to the configured endpoint. Leave empty for local endpoints that do not require authentication.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthDeviceAuthorizationUrl",
+    "shortDesc": "Device authorization URL",
+    "longDesc": "OAuth 2.0 device authorization endpoint used to request a user code.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthTokenUrl",
+    "shortDesc": "Token URL",
+    "longDesc": "OAuth 2.0 token endpoint used to poll for an access token.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthClientId",
+    "shortDesc": "Client ID",
+    "longDesc": "OAuth client ID registered with the provider.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthScope",
+    "shortDesc": "Scope",
+    "longDesc": "OAuth scopes requested during authorization. Leave empty if the provider does not require scopes.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthAccessToken",
+    "shortDesc": "OAuth access token",
+    "longDesc": "OAuth access token received from the provider.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthRefreshToken",
+    "shortDesc": "OAuth refresh token",
+    "longDesc": "OAuth refresh token received from the provider, if provided.",
+    "type": "string",
+    "default": ""
+},
+{
+    "name": "oauthTokenExpiresAtUtc",
+    "shortDesc": "OAuth token expiration",
+    "longDesc": "UTC epoch seconds when the OAuth access token expires.",
+    "type": "string",
+    "default": ""
+}
+]
+}
