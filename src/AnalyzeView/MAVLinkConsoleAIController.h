@@ -17,6 +17,7 @@
 #include <QtCore/QList>
 #include <QtCore/QMetaObject>
 #include <QtCore/QObject>
+#include <QtCore/QPointer>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtCore/QVariant>
@@ -24,10 +25,11 @@
 #include <QtNetwork/QNetworkReply>
 #include <QtPositioning/QGeoCoordinate>
 
+#include "Vehicle.h"
+
 class Fact;
 class FactGroup;
 class AIConsoleSettings;
-class Vehicle;
 
 class MAVLinkConsoleAIController : public QObject
 {
@@ -35,6 +37,11 @@ class MAVLinkConsoleAIController : public QObject
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(bool configured READ configured NOTIFY configuredChanged)
     Q_PROPERTY(QString errorText READ errorText NOTIFY errorTextChanged)
+    Q_PROPERTY(bool pendingActionAvailable READ pendingActionAvailable NOTIFY pendingActionChanged)
+    Q_PROPERTY(QString pendingActionTitle READ pendingActionTitle NOTIFY pendingActionChanged)
+    Q_PROPERTY(QString pendingActionDescription READ pendingActionDescription NOTIFY pendingActionChanged)
+    Q_PROPERTY(QString pendingActionCommand READ pendingActionCommand NOTIFY pendingActionChanged)
+    Q_PROPERTY(QString pendingActionRisk READ pendingActionRisk NOTIFY pendingActionChanged)
     Q_PROPERTY(bool oauthBusy READ oauthBusy NOTIFY oauthBusyChanged)
     Q_PROPERTY(bool oauthAuthorized READ oauthAuthorized NOTIFY oauthAuthorizedChanged)
     Q_PROPERTY(QString oauthStatusText READ oauthStatusText NOTIFY oauthStatusTextChanged)
@@ -51,6 +58,11 @@ public:
     bool busy() const { return _busy; }
     bool configured() const;
     QString errorText() const { return _errorText; }
+    bool pendingActionAvailable() const { return _pendingActionAvailable; }
+    QString pendingActionTitle() const { return _pendingActionTitle; }
+    QString pendingActionDescription() const { return _pendingActionDescription; }
+    QString pendingActionCommand() const { return _pendingActionCommand; }
+    QString pendingActionRisk() const { return _pendingActionRisk; }
     bool oauthBusy() const { return _oauthBusy; }
     bool oauthAuthorized() const;
     QString oauthStatusText() const { return _oauthStatusText; }
@@ -64,6 +76,8 @@ public:
     Q_INVOKABLE void askWithContext(const QString &question, const QString &consoleText);
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void clearConversation();
+    Q_INVOKABLE void approvePendingAction();
+    Q_INVOKABLE void rejectPendingAction();
     Q_INVOKABLE void startOAuthDeviceAuthorization();
     Q_INVOKABLE void cancelOAuthAuthorization();
     Q_INVOKABLE void clearOAuthTokens();
@@ -72,6 +86,7 @@ signals:
     void busyChanged();
     void configuredChanged();
     void errorTextChanged();
+    void pendingActionChanged();
     void oauthBusyChanged();
     void oauthAuthorizedChanged();
     void oauthStatusTextChanged();
@@ -90,11 +105,29 @@ private slots:
     void _pollOAuthToken();
 
 private:
+    enum ToolExecutionKind {
+        ToolExecutionImmediate,
+        ToolExecutionConsole,
+        ToolExecutionRequestMessage,
+        ToolExecutionSetMessageInterval
+    };
+
     struct PendingConsoleToolCommand {
         QString toolCallId;
         QString toolName;
         QString command;
         QJsonObject arguments;
+        ToolExecutionKind executionKind = ToolExecutionImmediate;
+        int componentId = MAV_COMP_ID_AUTOPILOT1;
+        int messageId = 0;
+        int intervalUsec = 0;
+        int ttlSeconds = 0;
+    };
+
+    struct AIToolCallbackData {
+        QPointer<MAVLinkConsoleAIController> controller;
+        QPointer<Vehicle> vehicle;
+        PendingConsoleToolCommand toolCommand;
     };
 
     bool _oauthSelected() const;
@@ -112,9 +145,12 @@ private:
     QJsonObject _coordinateToJson(const QGeoCoordinate &coordinate) const;
     QJsonObject _buildSysStatusSensorInfoJson(Vehicle *vehicle) const;
     QJsonObject _buildHealthAndArmingCheckReportJson(Vehicle *vehicle) const;
+    QJsonObject _buildLinkStatusJson(Vehicle *vehicle) const;
     QJsonObject _factGroupToJson(const FactGroup *factGroup) const;
     QJsonObject _factToJson(const Fact *fact) const;
     QJsonValue _variantToJson(const QVariant &value) const;
+    QJsonObject _parameterToJson(const Fact *fact) const;
+    QJsonObject _mavlinkMessageToJson(const mavlink_message_t &message) const;
     QString _trimConsoleContext(const QString &consoleText, bool *truncated) const;
     QList<PendingConsoleToolCommand> _automaticConsoleToolCommandsForQuestion(const QString &question) const;
     PendingConsoleToolCommand _makeSensorStatusToolCommand(const QString &toolCallId, const QString &sensorType) const;
@@ -125,18 +161,29 @@ private:
     bool _questionContainsAny(const QString &normalizedQuestion, const QStringList &needles) const;
     void _startToolExecution(const QJsonArray &toolCalls);
     void _appendToolResult(const PendingConsoleToolCommand &toolCommand, const QJsonObject &result);
-    bool _buildConsoleToolCommand(const QJsonObject &toolCall, PendingConsoleToolCommand *toolCommand, QJsonObject *immediateResult) const;
+    bool _buildAIToolCommand(const QJsonObject &toolCall, PendingConsoleToolCommand *toolCommand, QJsonObject *immediateResult) const;
+    QJsonObject _executeImmediateToolCommand(const PendingConsoleToolCommand &toolCommand) const;
     QString _consoleCommandForSensorStatus(const QString &sensorType) const;
     QString _normalizedSensorType(const QString &sensorType) const;
     bool _isSafePx4ParameterName(const QString &paramName) const;
     bool _isWhitelistedConsoleCommand(const QString &command) const;
+    bool _isSafeMavlinkMessageId(int messageId) const;
+    bool _validateVehicleForAITool(Vehicle *vehicle, const QString &toolName, QString *errorText) const;
+    bool _toolRequiresUserApproval(const PendingConsoleToolCommand &toolCommand) const;
+    void _setPendingApproval(const PendingConsoleToolCommand &toolCommand);
+    void _clearPendingApproval();
     QJsonObject _toolResultObject(const QString &toolCallId, const QString &toolName, const QJsonObject &arguments, const QString &status, const QString &message, const QString &command = QString(), const QString &output = QString(), bool outputTruncated = false) const;
     void _executeNextConsoleToolCommand();
+    void _executePendingMavlinkToolCommand(const PendingConsoleToolCommand &toolCommand);
     void _finishActiveConsoleToolCommand(const QString &status, const QString &message);
+    void _finishActiveMavlinkToolCommand(const PendingConsoleToolCommand &toolCommand, const QJsonObject &result);
     void _finishToolExecution();
     void _clearConsoleToolExecution(bool sendClose);
     void _sendSerialData(const QByteArray &data, bool close = false);
     QString _cleanConsoleOutput(const QByteArray &output, bool *truncated) const;
+    bool _answerContainsInternalToolMarkup(const QString &answer) const;
+    static void _requestMessageResultHandler(void *resultHandlerData, MAV_RESULT commandResult, Vehicle::RequestMessageResultHandlerFailureCode_t failureCode, const mavlink_message_t &message);
+    static void _mavCommandResultHandler(void *resultHandlerData, int compId, const mavlink_command_ack_t &ack, Vehicle::MavCmdResultFailureCode_t failureCode);
     void _clearPendingChatState();
     void _appendConversationMessage(const QString &role, const QString &content);
     void _setBusy(bool busy);
@@ -160,9 +207,15 @@ private:
     QJsonArray _pendingToolResultMessages;
     QList<PendingConsoleToolCommand> _pendingConsoleToolCommands;
     PendingConsoleToolCommand _activeConsoleToolCommand;
+    PendingConsoleToolCommand _activeMavlinkToolCommand;
+    PendingConsoleToolCommand _pendingApprovalToolCommand;
     QMetaObject::Connection _consoleDataConnection;
     QByteArray _activeConsoleOutput;
     QString _errorText;
+    QString _pendingActionTitle;
+    QString _pendingActionDescription;
+    QString _pendingActionCommand;
+    QString _pendingActionRisk;
     QString _pendingQuestion;
     QString _oauthDeviceCode;
     QString _oauthUserCode;
@@ -175,10 +228,13 @@ private:
     int _oauthPollIntervalMsec = 5000;
     int _remainingToolRounds = 0;
     int _remainingConsoleCommands = 0;
+    int _remainingLowPrivilegeMavlinkCommands = 0;
     int _networkRetryCount = 0;
     bool _pendingRequestIncludesTools = false;
+    bool _internalToolMarkupRetryUsed = false;
     bool _automaticToolExecution = false;
     bool _activeConsoleOutputTruncated = false;
+    bool _pendingActionAvailable = false;
     bool _busy = false;
     bool _oauthBusy = false;
 
@@ -191,6 +247,9 @@ private:
     static constexpr int kConversationMessageLimit = 16;
     static constexpr int kMaxToolRounds = 1;
     static constexpr int kMaxConsoleCommandsPerQuestion = 3;
+    static constexpr int kMaxLowPrivilegeMavlinkCommandsPerQuestion = 1;
+    static constexpr int kMaxMavlinkMessageIntervalHz = 5;
+    static constexpr int kMaxMavlinkMessageIntervalTtlSeconds = 30;
     static constexpr int kMaxNetworkRetryCount = 2;
     static constexpr int kAuthMethodApiKey = 0;
     static constexpr int kAuthMethodOAuthDevice = 1;

@@ -44,6 +44,8 @@ AnalyzePage {
 
             property int _consoleOutputLen: 0
             property bool _aiTranscriptStarted: false
+            property bool _aiPanelCollapsed: false
+            readonly property real _aiCollapsedHandleWidth: ScreenTools.implicitButtonHeight + (ScreenTools.defaultFontPixelWidth * 1.5)
             readonly property string _aiInitialText: qsTr("Ask about the active vehicle status or recent MAVLink Console output.")
 
             function scrollToBottom() {
@@ -106,6 +108,22 @@ AnalyzePage {
             function resetAITranscript() {
                 _aiTranscriptStarted = false
                 aiAnswer.text = _aiInitialText
+                aiScrollTimer.start()
+            }
+
+            function collapseAIPanel() {
+                if (ScreenTools.isMobile) {
+                    return
+                }
+
+                _aiPanelCollapsed = true
+                if (!_separateCommandInput) {
+                    textConsole.forceActiveFocus()
+                }
+            }
+
+            function expandAIPanel() {
+                _aiPanelCollapsed = false
                 aiScrollTimer.start()
             }
 
@@ -179,7 +197,10 @@ AnalyzePage {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                Layout.preferredWidth: ScreenTools.isMobile ? availableWidth : availableWidth * 0.64
+                Layout.preferredWidth: ScreenTools.isMobile ? availableWidth
+                                                            : (pageRoot._aiPanelCollapsed
+                                                               ? Math.max(0, availableWidth - pageRoot._aiCollapsedHandleWidth - pageRoot.columnSpacing)
+                                                               : availableWidth * 0.64)
                 Layout.preferredHeight: ScreenTools.isMobile ? availableHeight * 0.62 : availableHeight
 
                 QGCFlickable {
@@ -344,6 +365,7 @@ AnalyzePage {
                 Layout.preferredWidth: ScreenTools.isMobile ? availableWidth : availableWidth * 0.36
                 Layout.preferredHeight: ScreenTools.isMobile ? availableHeight * 0.38 : availableHeight
                 Layout.minimumWidth: ScreenTools.isMobile ? 0 : ScreenTools.defaultFontPixelWidth * 34
+                visible: ScreenTools.isMobile || !pageRoot._aiPanelCollapsed
                 color: qgcPal.windowShade
                 border.color: qgcPal.buttonBorder
                 border.width: 1
@@ -360,6 +382,17 @@ AnalyzePage {
                             Layout.fillWidth: true
                             text: qsTr("AI Assistant")
                             font.bold: true
+                        }
+
+                        QGCButton {
+                            text: ">"
+                            Layout.preferredWidth: ScreenTools.implicitButtonHeight
+                            Layout.preferredHeight: ScreenTools.implicitButtonHeight
+                            visible: !ScreenTools.isMobile
+                            onClicked: pageRoot.collapseAIPanel()
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 500
+                            ToolTip.text: qsTr("Hide AI Assistant")
                         }
 
                         QGCButton {
@@ -388,9 +421,73 @@ AnalyzePage {
                     QGCLabel {
                         Layout.fillWidth: true
                         wrapMode: Text.WordWrap
-                        text: aiController.busy ? qsTr("Waiting for response...") : ""
+                        text: aiController.pendingActionAvailable ? qsTr("Waiting for confirmation...")
+                              : (aiController.busy ? qsTr("Waiting for response...") : "")
                         visible: text.length > 0
                         color: qgcPal.text
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: pendingActionColumn.implicitHeight + (ScreenTools.defaultFontPixelHeight * 1.4)
+                        visible: aiController.pendingActionAvailable
+                        color: qgcPal.window
+                        border.color: qgcPal.warningText
+                        border.width: 1
+                        radius: 3
+
+                        ColumnLayout {
+                            id: pendingActionColumn
+                            anchors.fill: parent
+                            anchors.margins: ScreenTools.defaultFontPixelWidth * 0.75
+                            spacing: ScreenTools.defaultFontPixelHeight * 0.35
+
+                            QGCLabel {
+                                Layout.fillWidth: true
+                                text: aiController.pendingActionTitle
+                                font.bold: true
+                                color: qgcPal.warningText
+                            }
+
+                            QGCLabel {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                text: aiController.pendingActionDescription
+                            }
+
+                            QGCLabel {
+                                Layout.fillWidth: true
+                                wrapMode: QGCLabel.WrapAnywhere
+                                text: aiController.pendingActionCommand
+                                font.family: ScreenTools.fixedFontFamily
+                                font.pointSize: ScreenTools.smallFontPointSize
+                            }
+
+                            QGCLabel {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                text: aiController.pendingActionRisk
+                                color: qgcPal.warningText
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+
+                                Item { Layout.fillWidth: true }
+
+                                QGCButton {
+                                    text: qsTr("Reject")
+                                    enabled: aiController.pendingActionAvailable
+                                    onClicked: aiController.rejectPendingAction()
+                                }
+
+                                QGCButton {
+                                    text: qsTr("Approve")
+                                    enabled: aiController.pendingActionAvailable
+                                    onClicked: aiController.approvePendingAction()
+                                }
+                            }
+                        }
                     }
 
                     QGCFlickable {
@@ -431,12 +528,13 @@ AnalyzePage {
                             textFormat: TextEdit.PlainText
                             wrapMode: TextEdit.Wrap
                             selectByMouse: true
-                            inputMethodHints: Qt.ImhNone
+                            inputMethodHints: Qt.ImhMultiLine
                             color: qgcPal.text
                             selectedTextColor: qgcPal.windowShade
                             selectionColor: qgcPal.text
                             font.pointSize: ScreenTools.defaultFontPointSize
                             padding: ScreenTools.defaultFontPixelWidth * 0.75
+                            activeFocusOnPress: true
 
                             background: Rectangle {
                                 color: qgcPal.window
@@ -445,28 +543,50 @@ AnalyzePage {
                                 radius: 2
                             }
 
-                            Keys.onPressed: (event) => {
-                                if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                                        && !aiQuestion.inputMethodComposing
-                                        && !(event.modifiers & Qt.ShiftModifier)) {
-                                    askAI()
-                                    event.accepted = true
-                                }
-                            }
                         }
 
                         QGCButton {
-                            text: aiController.busy ? qsTr("Cancel") : qsTr("Ask")
+                            text: qsTr("Ask")
                             Layout.alignment: Qt.AlignBottom
-                            enabled: aiController.busy || (aiController.configured && aiQuestion.text.trim().length > 0)
-                            onClicked: {
-                                if (aiController.busy) {
-                                    aiController.cancel()
-                                } else {
-                                    askAI()
-                                }
-                            }
+                            visible: !aiController.busy
+                            enabled: aiController.configured && aiQuestion.text.trim().length > 0
+                            onClicked: askAI()
                         }
+
+                        QGCButton {
+                            text: qsTr("Cancel")
+                            Layout.alignment: Qt.AlignBottom
+                            visible: aiController.busy
+                            enabled: aiController.busy
+                            onClicked: aiController.cancel()
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillHeight: true
+                Layout.preferredWidth: pageRoot._aiCollapsedHandleWidth
+                Layout.preferredHeight: availableHeight
+                visible: !ScreenTools.isMobile && pageRoot._aiPanelCollapsed
+                color: qgcPal.windowShade
+                border.color: qgcPal.buttonBorder
+                border.width: 1
+
+                ColumnLayout {
+                    anchors.top: parent.top
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.topMargin: ScreenTools.defaultFontPixelWidth
+                    spacing: ScreenTools.defaultFontPixelHeight * 0.5
+
+                    QGCButton {
+                        text: "<"
+                        Layout.preferredWidth: ScreenTools.implicitButtonHeight
+                        Layout.preferredHeight: ScreenTools.implicitButtonHeight
+                        onClicked: pageRoot.expandAIPanel()
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 500
+                        ToolTip.text: qsTr("Show AI Assistant")
                     }
                 }
             }

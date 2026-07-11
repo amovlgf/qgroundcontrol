@@ -17,7 +17,7 @@
     "shortDesc": "Endpoint URL",
     "longDesc": "OpenAI-compatible chat completions endpoint used by the MAVLink Console AI assistant.",
     "type": "string",
-    "default": "http://127.0.0.1:11434/v1/chat/completions"
+    "default": ""
 },
 {
     "name": "modelName",
