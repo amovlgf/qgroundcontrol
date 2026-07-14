@@ -23,12 +23,10 @@ public:
     DEFINE_SETTINGFACT(authMethod)
     DEFINE_SETTINGFACT(endpointUrl)
     DEFINE_SETTINGFACT(modelName)
+    DEFINE_SETTINGFACT(chatGptModelName)
     DEFINE_SETTINGFACT(apiKey)
     DEFINE_SETTINGFACT(oauthDeviceAuthorizationUrl)
     DEFINE_SETTINGFACT(oauthTokenUrl)
     DEFINE_SETTINGFACT(oauthClientId)
     DEFINE_SETTINGFACT(oauthScope)
-    DEFINE_SETTINGFACT(oauthAccessToken)
-    DEFINE_SETTINGFACT(oauthRefreshToken)
-    DEFINE_SETTINGFACT(oauthTokenExpiresAtUtc)
 };

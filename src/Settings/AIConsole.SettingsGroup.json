@@ -6,9 +6,9 @@
 {
     "name": "authMethod",
     "shortDesc": "Authentication",
-    "longDesc": "Authentication method used for the configured OpenAI-compatible endpoint.",
+    "longDesc": "Authentication method used by the MAVLink Console AI assistant.",
     "type": "uint32",
-    "enumStrings": "API key,OAuth Device Flow",
+    "enumStrings": "API Key,Sign in with ChatGPT",
     "enumValues": "0,1",
     "default": 0
 },
@@ -27,6 +27,13 @@
     "default": ""
 },
 {
+    "name": "chatGptModelName",
+    "shortDesc": "ChatGPT model",
+    "longDesc": "Model identifier selected from the models provided by Codex App Server.",
+    "type": "string",
+    "default": ""
+},
+{
     "name": "apiKey",
     "shortDesc": "API key",
     "longDesc": "Personal bearer token sent to the configured endpoint. Leave empty for local endpoints that do not require authentication.",
@@ -36,49 +43,28 @@
 {
     "name": "oauthDeviceAuthorizationUrl",
     "shortDesc": "Device authorization URL",
-    "longDesc": "OAuth 2.0 device authorization endpoint used to request a user code.",
+    "longDesc": "Deprecated OAuth 2.0 device authorization endpoint. This field is retained for settings compatibility and is not used by ChatGPT sign-in.",
     "type": "string",
     "default": ""
 },
 {
     "name": "oauthTokenUrl",
     "shortDesc": "Token URL",
-    "longDesc": "OAuth 2.0 token endpoint used to poll for an access token.",
+    "longDesc": "Deprecated OAuth 2.0 token endpoint. This field is retained for settings compatibility and is not used by ChatGPT sign-in.",
     "type": "string",
     "default": ""
 },
 {
     "name": "oauthClientId",
     "shortDesc": "Client ID",
-    "longDesc": "OAuth client ID registered with the provider.",
+    "longDesc": "Deprecated OAuth client ID. This field is retained for settings compatibility and is not used by ChatGPT sign-in.",
     "type": "string",
     "default": ""
 },
 {
     "name": "oauthScope",
     "shortDesc": "Scope",
-    "longDesc": "OAuth scopes requested during authorization. Leave empty if the provider does not require scopes.",
-    "type": "string",
-    "default": ""
-},
-{
-    "name": "oauthAccessToken",
-    "shortDesc": "OAuth access token",
-    "longDesc": "OAuth access token received from the provider.",
-    "type": "string",
-    "default": ""
-},
-{
-    "name": "oauthRefreshToken",
-    "shortDesc": "OAuth refresh token",
-    "longDesc": "OAuth refresh token received from the provider, if provided.",
-    "type": "string",
-    "default": ""
-},
-{
-    "name": "oauthTokenExpiresAtUtc",
-    "shortDesc": "OAuth token expiration",
-    "longDesc": "UTC epoch seconds when the OAuth access token expires.",
+    "longDesc": "Deprecated OAuth scope. This field is retained for settings compatibility and is not used by ChatGPT sign-in.",
     "type": "string",
     "default": ""
 }

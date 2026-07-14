@@ -12,8 +12,12 @@ target_sources(${CMAKE_PROJECT_NAME}
         LogEntry.h
         MAVLinkChartController.cc
         MAVLinkChartController.h
+        CodexAppServerClient.cc
+        CodexAppServerClient.h
         MAVLinkConsoleAIController.cc
         MAVLinkConsoleAIController.h
+        PX4DiagnosticEvidence.cc
+        PX4DiagnosticEvidence.h
         MAVLinkConsoleController.cc
         MAVLinkConsoleController.h
         MAVLinkInspectorController.cc

@@ -25,6 +25,7 @@
 #include <QtNetwork/QNetworkReply>
 #include <QtPositioning/QGeoCoordinate>
 
+#include "CodexAppServerClient.h"
 #include "Vehicle.h"
 
 class Fact;
@@ -42,14 +43,16 @@ class MAVLinkConsoleAIController : public QObject
     Q_PROPERTY(QString pendingActionDescription READ pendingActionDescription NOTIFY pendingActionChanged)
     Q_PROPERTY(QString pendingActionCommand READ pendingActionCommand NOTIFY pendingActionChanged)
     Q_PROPERTY(QString pendingActionRisk READ pendingActionRisk NOTIFY pendingActionChanged)
-    Q_PROPERTY(bool oauthBusy READ oauthBusy NOTIFY oauthBusyChanged)
-    Q_PROPERTY(bool oauthAuthorized READ oauthAuthorized NOTIFY oauthAuthorizedChanged)
-    Q_PROPERTY(QString oauthStatusText READ oauthStatusText NOTIFY oauthStatusTextChanged)
-    Q_PROPERTY(QString oauthUserCode READ oauthUserCode NOTIFY oauthAuthorizationChanged)
-    Q_PROPERTY(QString oauthVerificationUri READ oauthVerificationUri NOTIFY oauthAuthorizationChanged)
-    Q_PROPERTY(QString oauthVerificationUriComplete READ oauthVerificationUriComplete NOTIFY oauthAuthorizationChanged)
-    Q_PROPERTY(QString oauthMessage READ oauthMessage NOTIFY oauthAuthorizationChanged)
-    Q_PROPERTY(QString oauthExpiresAtText READ oauthExpiresAtText NOTIFY oauthAuthorizedChanged)
+    Q_PROPERTY(bool chatGptSignedIn READ chatGptSignedIn NOTIFY chatGptAccountChanged)
+    Q_PROPERTY(bool chatGptLoginInProgress READ chatGptLoginInProgress NOTIFY chatGptLoginChanged)
+    Q_PROPERTY(QString chatGptStatusText READ chatGptStatusText NOTIFY chatGptStatusChanged)
+    Q_PROPERTY(QString chatGptAccountEmail READ chatGptAccountEmail NOTIFY chatGptAccountChanged)
+    Q_PROPERTY(QString chatGptPlanType READ chatGptPlanType NOTIFY chatGptAccountChanged)
+    Q_PROPERTY(QString chatGptVerificationUrl READ chatGptVerificationUrl NOTIFY chatGptLoginChanged)
+    Q_PROPERTY(QString chatGptUserCode READ chatGptUserCode NOTIFY chatGptLoginChanged)
+    Q_PROPERTY(QVariantList chatGptModels READ chatGptModels NOTIFY chatGptModelsChanged)
+    Q_PROPERTY(QStringList chatGptModelNames READ chatGptModelNames NOTIFY chatGptModelsChanged)
+    Q_PROPERTY(int chatGptModelIndex READ chatGptModelIndex NOTIFY chatGptModelsChanged)
 
 public:
     explicit MAVLinkConsoleAIController(QObject *parent = nullptr);
@@ -63,14 +66,16 @@ public:
     QString pendingActionDescription() const { return _pendingActionDescription; }
     QString pendingActionCommand() const { return _pendingActionCommand; }
     QString pendingActionRisk() const { return _pendingActionRisk; }
-    bool oauthBusy() const { return _oauthBusy; }
-    bool oauthAuthorized() const;
-    QString oauthStatusText() const { return _oauthStatusText; }
-    QString oauthUserCode() const { return _oauthUserCode; }
-    QString oauthVerificationUri() const { return _oauthVerificationUri; }
-    QString oauthVerificationUriComplete() const { return _oauthVerificationUriComplete; }
-    QString oauthMessage() const { return _oauthMessage; }
-    QString oauthExpiresAtText() const;
+    bool chatGptSignedIn() const { return _chatGptSignedIn; }
+    bool chatGptLoginInProgress() const { return _chatGptLoginInProgress; }
+    QString chatGptStatusText() const { return _chatGptStatusText; }
+    QString chatGptAccountEmail() const { return _chatGptAccountEmail; }
+    QString chatGptPlanType() const { return _chatGptPlanType; }
+    QString chatGptVerificationUrl() const { return _chatGptVerificationUrl; }
+    QString chatGptUserCode() const { return _chatGptUserCode; }
+    QVariantList chatGptModels() const { return _chatGptModels; }
+    QStringList chatGptModelNames() const;
+    int chatGptModelIndex() const { return _chatGptModelIndex; }
 
     Q_INVOKABLE void ask(const QString &question);
     Q_INVOKABLE void askWithContext(const QString &question, const QString &consoleText);
@@ -78,19 +83,24 @@ public:
     Q_INVOKABLE void clearConversation();
     Q_INVOKABLE void approvePendingAction();
     Q_INVOKABLE void rejectPendingAction();
-    Q_INVOKABLE void startOAuthDeviceAuthorization();
-    Q_INVOKABLE void cancelOAuthAuthorization();
-    Q_INVOKABLE void clearOAuthTokens();
+    Q_INVOKABLE void startChatGptLogin();
+    Q_INVOKABLE void cancelChatGptLogin();
+    Q_INVOKABLE void signOutChatGpt();
+    Q_INVOKABLE void openChatGptLoginPage();
+    Q_INVOKABLE void copyChatGptUserCode();
+    Q_INVOKABLE void selectChatGptModel(int index);
 
 signals:
     void busyChanged();
     void configuredChanged();
     void errorTextChanged();
     void pendingActionChanged();
-    void oauthBusyChanged();
-    void oauthAuthorizedChanged();
-    void oauthStatusTextChanged();
-    void oauthAuthorizationChanged();
+    void chatGptAccountChanged();
+    void chatGptLoginChanged();
+    void chatGptStatusChanged();
+    void chatGptModelsChanged();
+    void answerDelta(const QString &delta);
+    void answerFinalized(const QString &answer);
     void answerReady(const QString &answer);
     void conversationCleared();
     void requestFailed(const QString &errorText);
@@ -100,9 +110,6 @@ private slots:
     void _requestTimedOut();
     void _consoleCommandTimedOut();
     void _receiveConsoleData(uint8_t device, uint8_t flags, uint16_t timeout, uint32_t baudrate, const QByteArray &data);
-    void _oauthDeviceAuthorizationFinished();
-    void _oauthTokenPollFinished();
-    void _pollOAuthToken();
 
 private:
     enum ToolExecutionKind {
@@ -130,8 +137,18 @@ private:
         PendingConsoleToolCommand toolCommand;
     };
 
-    bool _oauthSelected() const;
-    bool _oauthTokenUsable() const;
+    bool _chatGptSelected() const;
+    void _askChatGptWithContext(const QString &question, const QString &consoleText);
+    void _ensureCodexClientStarted();
+    void _readChatGptAccount();
+    void _loadChatGptModels();
+    void _handleCodexNotification(const QString &method, const QJsonObject &params);
+    void _startChatGptThread(const QString &question, const QString &consoleText);
+    void _startChatGptTurn(const QString &threadId, const QString &question, const QString &consoleText);
+    QString _chatGptPrompt(const QString &question, const QString &consoleText) const;
+    void _setChatGptLoginInProgress(bool inProgress);
+    void _setChatGptStatus(const QString &statusText);
+    void _resetChatGptLoginFields();
     bool _checkTlsAvailable(const QUrl &url, QString *errorText) const;
     QString _tlsUnavailableText() const;
     QString _formatNetworkErrorText(QNetworkReply::NetworkError networkError, const QUrl &url, const QString &errorText, const QByteArray &payload = QByteArray(), int httpStatusCode = 0) const;
@@ -142,6 +159,7 @@ private:
     bool _postChatRequest(const QJsonArray &messages, bool includeTools, const QString &toolChoice = QString());
     QJsonArray _buildToolDefinitions() const;
     QJsonObject _buildVehicleSnapshot(Vehicle *vehicle) const;
+    QJsonObject _buildDiagnosticEvidenceJson(Vehicle *vehicle) const;
     QJsonObject _coordinateToJson(const QGeoCoordinate &coordinate) const;
     QJsonObject _buildSysStatusSensorInfoJson(Vehicle *vehicle) const;
     QJsonObject _buildHealthAndArmingCheckReportJson(Vehicle *vehicle) const;
@@ -190,18 +208,12 @@ private:
     void _setErrorText(const QString &errorText);
     void _failRequest(const QString &errorText);
     void _clearReply(bool abortReply);
-    void _setOAuthBusy(bool busy);
-    void _setOAuthStatusText(const QString &statusText);
-    void _failOAuth(const QString &errorText);
-    void _clearOAuthReply(bool abortReply);
-    void _clearOAuthAuthorizationFields();
 
     QNetworkAccessManager _networkManager;
+    CodexAppServerClient _codexClient;
     QNetworkReply *_reply = nullptr;
-    QNetworkReply *_oauthReply = nullptr;
     QTimer _timeoutTimer;
     QTimer _consoleCommandTimer;
-    QTimer _oauthPollTimer;
     QJsonArray _conversationHistory;
     QJsonArray _pendingMessages;
     QJsonArray _pendingToolResultMessages;
@@ -217,15 +229,18 @@ private:
     QString _pendingActionCommand;
     QString _pendingActionRisk;
     QString _pendingQuestion;
-    QString _oauthDeviceCode;
-    QString _oauthUserCode;
-    QString _oauthVerificationUri;
-    QString _oauthVerificationUriComplete;
-    QString _oauthMessage;
-    QString _oauthStatusText;
+    QString _chatGptStatusText;
+    QString _chatGptAccountEmail;
+    QString _chatGptPlanType;
+    QString _chatGptVerificationUrl;
+    QString _chatGptUserCode;
+    QString _chatGptLoginId;
+    QString _chatGptThreadId;
+    QString _chatGptTurnId;
+    QString _chatGptAnswer;
+    QVariantList _chatGptModels;
     QString _pendingToolChoice;
-    QDateTime _oauthDeviceCodeExpiresAtUtc;
-    int _oauthPollIntervalMsec = 5000;
+    int _chatGptModelIndex = -1;
     int _remainingToolRounds = 0;
     int _remainingConsoleCommands = 0;
     int _remainingLowPrivilegeMavlinkCommands = 0;
@@ -236,7 +251,9 @@ private:
     bool _activeConsoleOutputTruncated = false;
     bool _pendingActionAvailable = false;
     bool _busy = false;
-    bool _oauthBusy = false;
+    bool _chatGptSignedIn = false;
+    bool _chatGptLoginInProgress = false;
+    bool _chatGptLoginRequested = false;
 
     static constexpr int kRequestTimeoutMsec = 30000;
     static constexpr int kNetworkRetryDelayMsec = 1200;
@@ -252,5 +269,5 @@ private:
     static constexpr int kMaxMavlinkMessageIntervalTtlSeconds = 30;
     static constexpr int kMaxNetworkRetryCount = 2;
     static constexpr int kAuthMethodApiKey = 0;
-    static constexpr int kAuthMethodOAuthDevice = 1;
+    static constexpr int kAuthMethodChatGpt = 1;
 };

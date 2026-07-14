@@ -22,8 +22,7 @@ import QGroundControl.ScreenTools
 SettingsPage {
     property var  _aiConsoleSettings: QGroundControl.settingsManager.aiConsoleSettings
     property real _fieldWidth:        ScreenTools.defaultFontPixelWidth * 42
-    property bool _isOAuth:           _aiConsoleSettings.authMethod.rawValue === 1
-    property string _oauthUrl:        aiAuthController.oauthVerificationUriComplete.length > 0 ? aiAuthController.oauthVerificationUriComplete : aiAuthController.oauthVerificationUri
+    property bool _isChatGpt:         _aiConsoleSettings.authMethod.rawValue === 1
 
     QGCPalette {
         id: qgcPal
@@ -36,7 +35,7 @@ SettingsPage {
     SettingsGroupLayout {
         Layout.fillWidth:   true
         heading:            qsTr("AI Assistant")
-        headingDescription: qsTr("The MAVLink Console AI assistant sends active vehicle status and recent console output to this OpenAI-compatible endpoint.")
+        headingDescription: qsTr("The MAVLink Console AI assistant sends active vehicle status and recent console output to the selected provider.")
 
         LabelledFactComboBox {
             Layout.fillWidth:           true
@@ -51,6 +50,7 @@ SettingsPage {
             textFieldPreferredWidth:    _fieldWidth
             label:                      qsTr("Endpoint URL")
             fact:                       _aiConsoleSettings.endpointUrl
+            visible:                    !_isChatGpt
         }
 
         LabelledFactTextField {
@@ -58,6 +58,7 @@ SettingsPage {
             textFieldPreferredWidth:    _fieldWidth
             label:                      qsTr("Model")
             fact:                       _aiConsoleSettings.modelName
+            visible:                    !_isChatGpt
         }
 
         LabelledFactTextField {
@@ -66,119 +67,117 @@ SettingsPage {
             label:                      qsTr("API key (optional)")
             fact:                       _aiConsoleSettings.apiKey
             textField.echoMode:         TextInput.Password
-            visible:                    !_isOAuth
+            visible:                    !_isChatGpt
         }
     }
 
     SettingsGroupLayout {
         Layout.fillWidth:   true
-        heading:            qsTr("OAuth Device Flow")
-        headingDescription: qsTr("Use OAuth when the AI endpoint expects a bearer access token from an authorization provider.")
-        visible:            _isOAuth
+        heading:            qsTr("ChatGPT Account")
+        headingDescription: qsTr("ChatGPT authentication, account state, and models are managed by the local Codex App Server.")
+        visible:            _isChatGpt
 
-        LabelledFactTextField {
-            Layout.fillWidth:           true
-            textFieldPreferredWidth:    _fieldWidth
-            label:                      qsTr("Device authorization URL")
-            fact:                       _aiConsoleSettings.oauthDeviceAuthorizationUrl
+        QGCLabel {
+            Layout.fillWidth: true
+            wrapMode:         Text.WordWrap
+            text:             qsTr("Status: %1").arg(aiAuthController.chatGptStatusText.length > 0 ? aiAuthController.chatGptStatusText : qsTr("Not signed in"))
+            color:            aiAuthController.chatGptSignedIn ? qgcPal.text : qgcPal.warningText
         }
 
-        LabelledFactTextField {
-            Layout.fillWidth:           true
-            textFieldPreferredWidth:    _fieldWidth
-            label:                      qsTr("Token URL")
-            fact:                       _aiConsoleSettings.oauthTokenUrl
+        QGCLabel {
+            Layout.fillWidth: true
+            wrapMode:         Text.WordWrap
+            text:             aiAuthController.chatGptLoginInProgress
+                                  ? qsTr("Login steps:\n1. Click Open login page.\n2. If the browser says device code login is disabled, enable Codex device code authorization in ChatGPT Settings > Security.\n3. Click Continue in the browser and enter the code shown below.")
+                                  : qsTr("Before signing in, enable Codex device code authorization in ChatGPT Settings > Security, then click Sign in with ChatGPT.")
+            visible:          !aiAuthController.chatGptSignedIn
+            color:             qgcPal.warningText
         }
 
-        LabelledFactTextField {
-            Layout.fillWidth:           true
-            textFieldPreferredWidth:    _fieldWidth
-            label:                      qsTr("Client ID")
-            fact:                       _aiConsoleSettings.oauthClientId
+        QGCLabel {
+            Layout.fillWidth: true
+            wrapMode:         Text.WordWrap
+            text:             qsTr("Account: %1").arg(aiAuthController.chatGptAccountEmail.length > 0 ? aiAuthController.chatGptAccountEmail : qsTr("Not available"))
+            visible:          aiAuthController.chatGptSignedIn
         }
 
-        LabelledFactTextField {
-            Layout.fillWidth:           true
-            textFieldPreferredWidth:    _fieldWidth
-            label:                      qsTr("Scope")
-            fact:                       _aiConsoleSettings.oauthScope
+        QGCLabel {
+            Layout.fillWidth: true
+            wrapMode:         Text.WordWrap
+            text:             qsTr("Plan: %1").arg(aiAuthController.chatGptPlanType.length > 0 ? aiAuthController.chatGptPlanType : qsTr("Not available"))
+            visible:          aiAuthController.chatGptSignedIn
         }
 
         RowLayout {
             Layout.fillWidth: true
-            spacing: ScreenTools.defaultFontPixelWidth
+            visible:          !aiAuthController.chatGptSignedIn
 
             QGCButton {
-                text: aiAuthController.oauthBusy ? qsTr("Authorizing...") : qsTr("Authorize")
-                enabled: !aiAuthController.oauthBusy
-                onClicked: aiAuthController.startOAuthDeviceAuthorization()
-            }
-
-            QGCButton {
-                text: qsTr("Cancel")
-                enabled: aiAuthController.oauthBusy
-                onClicked: aiAuthController.cancelOAuthAuthorization()
-            }
-
-            QGCButton {
-                text: qsTr("Clear Token")
-                enabled: !aiAuthController.oauthBusy && aiAuthController.oauthAuthorized
-                onClicked: aiAuthController.clearOAuthTokens()
+                text:    aiAuthController.chatGptLoginInProgress ? qsTr("Waiting for authorization") : qsTr("Sign in with ChatGPT")
+                enabled: !aiAuthController.chatGptLoginInProgress
+                onClicked: aiAuthController.startChatGptLogin()
             }
         }
 
-        QGCLabel {
+        ColumnLayout {
             Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: aiAuthController.oauthAuthorized
-                  ? qsTr("OAuth authorized.")
-                  : qsTr("OAuth is not authorized.")
-        }
-
-        QGCLabel {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: qsTr("Expires: %1").arg(aiAuthController.oauthExpiresAtText)
-            visible: aiAuthController.oauthAuthorized && aiAuthController.oauthExpiresAtText.length > 0
-        }
-
-        QGCLabel {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: aiAuthController.oauthStatusText
-            visible: text.length > 0
-            color: qgcPal.warningText
-        }
-
-        QGCLabel {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: aiAuthController.oauthMessage
-            visible: text.length > 0
-        }
-
-        QGCLabel {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: qsTr("User code: %1").arg(aiAuthController.oauthUserCode)
-            visible: aiAuthController.oauthUserCode.length > 0
-            font.bold: true
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            visible: _oauthUrl.length > 0
+            spacing:          ScreenTools.defaultFontPixelHeight * 0.5
+            visible:          aiAuthController.chatGptLoginInProgress && aiAuthController.chatGptUserCode.length > 0
 
             QGCLabel {
                 Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                text: _oauthUrl
+                wrapMode:         Text.WordWrap
+                text:             qsTr("Open the following page and enter the code:")
             }
 
-            QGCButton {
-                text: qsTr("Open")
-                onClicked: Qt.openUrlExternally(_oauthUrl)
+            QGCLabel {
+                Layout.fillWidth: true
+                wrapMode:         Text.WordWrap
+                text:             qsTr("Verification URL: %1").arg(aiAuthController.chatGptVerificationUrl)
             }
+
+            QGCLabel {
+                Layout.fillWidth: true
+                text:             qsTr("Code: %1").arg(aiAuthController.chatGptUserCode)
+                font.bold:        true
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+
+                QGCButton {
+                    text:    qsTr("Open login page")
+                    onClicked: aiAuthController.openChatGptLoginPage()
+                }
+
+                QGCButton {
+                    text:    qsTr("Copy code")
+                    onClicked: aiAuthController.copyChatGptUserCode()
+                }
+
+                QGCButton {
+                    text:    qsTr("Cancel")
+                    onClicked: aiAuthController.cancelChatGptLogin()
+                }
+            }
+        }
+
+        LabelledComboBox {
+            id:                         chatGptModelCombo
+            Layout.fillWidth:           true
+            comboBoxPreferredWidth:     _fieldWidth
+            label:                      qsTr("Model")
+            model:                      aiAuthController.chatGptModelNames
+            currentIndex:               aiAuthController.chatGptModelIndex
+            visible:                    aiAuthController.chatGptSignedIn
+            onActivated: (index) => aiAuthController.selectChatGptModel(index)
+        }
+
+        QGCButton {
+            text:    qsTr("Sign out")
+            enabled: aiAuthController.chatGptSignedIn && !aiAuthController.chatGptLoginInProgress
+            visible: enabled
+            onClicked: aiAuthController.signOutChatGpt()
         }
     }
 }

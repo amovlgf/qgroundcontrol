@@ -44,6 +44,7 @@ AnalyzePage {
 
             property int _consoleOutputLen: 0
             property bool _aiTranscriptStarted: false
+            property bool _aiAnswerStreaming: false
             property bool _aiPanelCollapsed: false
             readonly property real _aiCollapsedHandleWidth: ScreenTools.implicitButtonHeight + (ScreenTools.defaultFontPixelWidth * 1.5)
             readonly property string _aiInitialText: qsTr("Ask about the active vehicle status or recent MAVLink Console output.")
@@ -96,6 +97,8 @@ AnalyzePage {
                     return
                 }
 
+                _aiAnswerStreaming = false
+
                 if (!_aiTranscriptStarted) {
                     aiAnswer.text = ""
                     _aiTranscriptStarted = true
@@ -105,8 +108,44 @@ AnalyzePage {
                 aiScrollTimer.start()
             }
 
+            function appendAIAnswerDelta(delta) {
+                if (!delta || delta.length === 0) {
+                    return
+                }
+                if (!_aiTranscriptStarted) {
+                    aiAnswer.text = ""
+                    _aiTranscriptStarted = true
+                }
+                if (!_aiAnswerStreaming) {
+                    aiAnswer.text += qsTr("AI") + ": "
+                    _aiAnswerStreaming = true
+                }
+                aiAnswer.text += delta
+                aiScrollTimer.start()
+            }
+
+            function finalizeAIAnswer(answer) {
+                if (!answer || answer.trim().length === 0) {
+                    return
+                }
+                if (_aiAnswerStreaming) {
+                    const prefix = qsTr("AI") + ": "
+                    const prefixIndex = aiAnswer.text.lastIndexOf(prefix)
+                    if (prefixIndex >= 0) {
+                        aiAnswer.text = aiAnswer.text.substring(0, prefixIndex) + prefix + answer.trim() + "\n\n"
+                    } else {
+                        appendAITranscript(qsTr("AI"), answer)
+                    }
+                    _aiAnswerStreaming = false
+                } else {
+                    appendAITranscript(qsTr("AI"), answer)
+                }
+                aiScrollTimer.start()
+            }
+
             function resetAITranscript() {
                 _aiTranscriptStarted = false
+                _aiAnswerStreaming = false
                 aiAnswer.text = _aiInitialText
                 aiScrollTimer.start()
             }
@@ -143,6 +182,14 @@ AnalyzePage {
 
                 function onAnswerReady(answer) {
                     appendAITranscript(qsTr("AI"), answer)
+                }
+
+                function onAnswerDelta(delta) {
+                    appendAIAnswerDelta(delta)
+                }
+
+                function onAnswerFinalized(answer) {
+                    finalizeAIAnswer(answer)
                 }
 
                 function onRequestFailed(errorText) {

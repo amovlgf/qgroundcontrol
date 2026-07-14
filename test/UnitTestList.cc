@@ -19,6 +19,8 @@
 // #include "GeoTagControllerTest.h"
 // #include "MavlinkLogTest.h"
 #include "LogDownloadTest.h"
+#include "MAVLinkConsoleAIControllerTest.h"
+#include "CodexAppServerClientTest.h"
 #include "PX4LogParserTest.h"
 // #include "ULogParserTest.h"
 
@@ -126,6 +128,8 @@ int runTests(bool stress, QStringView unitTestOptions)
     // UT_REGISTER_TEST(GeoTagControllerTest)
     // UT_REGISTER_TEST(MavlinkLogTest)
     UT_REGISTER_TEST(LogDownloadTest)
+    UT_REGISTER_TEST(MAVLinkConsoleAIControllerTest)
+    UT_REGISTER_TEST(CodexAppServerClientTest)
     UT_REGISTER_TEST(PX4LogParserTest)
     // UT_REGISTER_TEST(ULogParserTest)
 
