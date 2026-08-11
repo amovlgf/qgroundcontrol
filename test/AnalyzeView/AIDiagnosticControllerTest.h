@@ -11,12 +11,17 @@
 
 #include "UnitTest.h"
 
-class MAVLinkConsoleAIControllerTest : public UnitTest
+class AIDiagnosticControllerTest : public UnitTest
 {
     Q_OBJECT
 
 private slots:
-    void _aiConsoleSettingsPageLoads_test();
+    void _assistantPagesLoad_test();
+    void _settingsCompatibilityAlias_test();
+    void _contextSchemaWithoutVehicle_test();
+    void _responseLanguagePolicy_test();
+    void _px4ProviderBoundaryAndPolicy_test();
+    void _vehicleSwitchAndStaleEventIsolation_test();
     void _externalVisionInputPresentButNotConfigured_test();
     void _externalVisionFusionControl_test();
     void _externalVisionInvalidPayload_test();

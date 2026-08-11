@@ -14,10 +14,15 @@ target_sources(${CMAKE_PROJECT_NAME}
         MAVLinkChartController.h
         CodexAppServerClient.cc
         CodexAppServerClient.h
-        MAVLinkConsoleAIController.cc
-        MAVLinkConsoleAIController.h
+        AIDiagnosticContextBuilder.cc
+        AIDiagnosticContextBuilder.h
+        AIDiagnosticController.cc
+        AIDiagnosticController.h
+        AIDiagnosticProvider.h
         PX4DiagnosticEvidence.cc
         PX4DiagnosticEvidence.h
+        PX4DiagnosticProvider.cc
+        PX4DiagnosticProvider.h
         MAVLinkConsoleController.cc
         MAVLinkConsoleController.h
         MAVLinkInspectorController.cc
@@ -43,6 +48,7 @@ qt_add_qml_module(AnalyzeViewModule
     VERSION 1.0
     RESOURCE_PREFIX /qml
     QML_FILES
+        AIDiagnosticPage.qml
         AnalyzeView.qml
         GeoTagPage.qml
         LogDownloadPage.qml

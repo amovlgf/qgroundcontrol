@@ -66,6 +66,7 @@
 - [分析](qgc-user-guide/analyze_view/index.md)
   - [日志下载](qgc-user-guide/analyze_view/log_download.md)
   - [地理标记图像 (PX4)](qgc-user-guide/analyze_view/geotag_images.md)
+  - [AI 飞行诊断 (PX4)](qgc-user-guide/analyze_view/ai_flight_diagnostics.md)
   - [MAVLink 控制台(PX4)](qgc-user-guide/analyze_view/mavlink_console.md)
   - [MAVLink 检查器](qgc-user-guide/analyze_view/mavlink_inspector.md)
 

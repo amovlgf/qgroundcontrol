@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="860" viewBox="0 0 1440 860" role="img" aria-labelledby="title desc">
+  <title id="title">QGroundControl PX4 AI Flight Diagnostics data flow</title>
+  <desc id="desc">The dedicated Analyze page builds a versioned context with a PX4 provider and sends it through either an OpenAI-compatible controlled-tool path or a context-only ChatGPT path.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#44546a"/>
+    </marker>
+    <style>
+      .title { font: 700 30px sans-serif; fill: #14213d; }
+      .subtitle { font: 16px sans-serif; fill: #52606d; }
+      .box-title { font: 700 19px sans-serif; fill: #14213d; }
+      .text { font: 15px sans-serif; fill: #243b53; }
+      .small { font: 13px sans-serif; fill: #52606d; }
+      .box { stroke-width: 2; rx: 16; ry: 16; }
+      .arrow { fill: none; stroke: #44546a; stroke-width: 2.4; marker-end: url(#arrow); }
+      .dash { fill: none; stroke: #829ab1; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1440" height="860" fill="#f7fafc"/>
+  <text x="720" y="48" text-anchor="middle" class="title">PX4 AI Flight Diagnostics — Analyze View Data Flow</text>
+  <text x="720" y="76" text-anchor="middle" class="subtitle">专用 Analyze 页面、版本化上下文与两条隔离的 AI 服务路径</text>
+
+  <rect x="55" y="125" width="245" height="105" fill="#e6f6ff" stroke="#168aad" class="box"/>
+  <text x="177" y="158" text-anchor="middle" class="box-title">User Question</text>
+  <text x="177" y="184" text-anchor="middle" class="text">用户诊断问题</text>
+  <text x="177" y="208" text-anchor="middle" class="small">Ask / Cancel / Clear</text>
+
+  <rect x="55" y="285" width="245" height="130" fill="#fff7e6" stroke="#e09f3e" class="box"/>
+  <text x="177" y="318" text-anchor="middle" class="box-title">Manual Attachment</text>
+  <text x="177" y="344" text-anchor="middle" class="text">用户主动粘贴 PX4 Console</text>
+  <text x="177" y="369" text-anchor="middle" class="small">No background collection</text>
+  <text x="177" y="391" text-anchor="middle" class="small">Tail limit: 12,000 chars</text>
+
+  <rect x="365" y="125" width="295" height="290" fill="#edf2ff" stroke="#5267df" class="box"/>
+  <text x="512" y="160" text-anchor="middle" class="box-title">AIDiagnosticPage.qml</text>
+  <text x="512" y="188" text-anchor="middle" class="text">AI Flight Diagnostics (PX4)</text>
+  <line x1="395" y1="210" x2="630" y2="210" stroke="#a9b6e8"/>
+  <text x="395" y="242" class="text">• Vehicle / firmware summary</text>
+  <text x="395" y="271" class="text">• Transcript and question</text>
+  <text x="395" y="300" class="text">• Explicit attachment boundary</text>
+  <text x="395" y="329" class="text">• Tool approval card</text>
+  <text x="395" y="358" class="text">• Experimental / PX4-only labels</text>
+  <text x="395" y="388" class="small">Non-PX4 is disabled before request</text>
+
+  <rect x="725" y="125" width="310" height="135" fill="#eafaf1" stroke="#2d936c" class="box"/>
+  <text x="880" y="160" text-anchor="middle" class="box-title">AIDiagnosticController</text>
+  <text x="880" y="189" text-anchor="middle" class="text">Conversation • request • approval</text>
+  <text x="880" y="216" text-anchor="middle" class="text">Vehicle binding • cancellation</text>
+  <text x="880" y="241" text-anchor="middle" class="small">Service and local tool coordination</text>
+
+  <rect x="725" y="320" width="310" height="135" fill="#eff8ff" stroke="#3b82c4" class="box"/>
+  <text x="880" y="355" text-anchor="middle" class="box-title">AIDiagnosticContextBuilder</text>
+  <text x="880" y="384" text-anchor="middle" class="text">schemaVersion 1</text>
+  <text x="880" y="410" text-anchor="middle" class="small">Core • health • link • FactGroups</text>
+  <text x="880" y="434" text-anchor="middle" class="small">Batteries • PX4 evidence • attachment</text>
+
+  <rect x="1100" y="320" width="285" height="135" fill="#f4edff" stroke="#805ad5" class="box"/>
+  <text x="1242" y="355" text-anchor="middle" class="box-title">PX4DiagnosticProvider</text>
+  <text x="1242" y="384" text-anchor="middle" class="text">Firmware semantics / 固件语义</text>
+  <text x="1242" y="410" text-anchor="middle" class="small">Evidence • routing • whitelist</text>
+  <text x="1242" y="434" text-anchor="middle" class="small">PX4-only prompt rules</text>
+
+  <rect x="365" y="535" width="310" height="170" fill="#fff6f0" stroke="#e76f51" class="box"/>
+  <text x="520" y="571" text-anchor="middle" class="box-title">OpenAI-compatible API</text>
+  <text x="520" y="600" text-anchor="middle" class="text">Context + structured tools</text>
+  <text x="520" y="628" text-anchor="middle" class="small">Local validation always wins</text>
+  <text x="520" y="653" text-anchor="middle" class="small">Approval for gated MAVLink data</text>
+  <text x="520" y="678" text-anchor="middle" class="small">No free-form command execution</text>
+
+  <rect x="765" y="535" width="310" height="170" fill="#eafaf1" stroke="#2d936c" class="box"/>
+  <text x="920" y="571" text-anchor="middle" class="box-title">ChatGPT / Codex Path</text>
+  <text x="920" y="600" text-anchor="middle" class="text">Context + answer only</text>
+  <text x="920" y="628" text-anchor="middle" class="small">Read-only sandbox</text>
+  <text x="920" y="653" text-anchor="middle" class="small">No local QGC tools</text>
+  <text x="920" y="678" text-anchor="middle" class="small">No approval or local network access</text>
+
+  <rect x="90" y="755" width="255" height="70" fill="#fce8e6" stroke="#c0392b" class="box"/>
+  <text x="217" y="786" text-anchor="middle" class="box-title">Safety Gate / 安全门</text>
+  <text x="217" y="810" text-anchor="middle" class="small">PX4 • disarmed • landed • linked</text>
+
+  <rect x="410" y="755" width="255" height="70" fill="#eafaf1" stroke="#2d936c" class="box"/>
+  <text x="537" y="786" text-anchor="middle" class="box-title">Read-only Registry</text>
+  <text x="537" y="810" text-anchor="middle" class="small">Whitelist + per-question limits</text>
+
+  <rect x="730" y="755" width="255" height="70" fill="#edf2ff" stroke="#5267df" class="box"/>
+  <text x="857" y="786" text-anchor="middle" class="box-title">Bound PX4 Vehicle</text>
+  <text x="857" y="810" text-anchor="middle" class="small">Telemetry / approved data request</text>
+
+  <path d="M300 177 H365" class="arrow"/>
+  <path d="M300 350 H365" class="arrow"/>
+  <path d="M660 190 H725" class="arrow"/>
+  <path d="M880 260 V320" class="arrow"/>
+  <path d="M1100 387 H1035" class="arrow"/>
+  <path d="M820 455 L620 535" class="arrow"/>
+  <path d="M940 455 L920 535" class="arrow"/>
+  <path d="M520 705 V735 H217 V755" class="arrow"/>
+  <path d="M345 790 H410" class="arrow"/>
+  <path d="M665 790 H730" class="arrow"/>
+  <path d="M985 790 H1240 V455" class="dash"/>
+  <path d="M920 705 V730" class="dash"/>
+  <text x="1025" y="729" class="small">answer text / 回答</text>
+</svg>

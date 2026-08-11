@@ -11,12 +11,12 @@
 
 #include "SettingsGroup.h"
 
-class AIConsoleSettings : public SettingsGroup
+class AIAssistantSettings : public SettingsGroup
 {
     Q_OBJECT
 
 public:
-    explicit AIConsoleSettings(QObject *parent = nullptr);
+    explicit AIAssistantSettings(QObject *parent = nullptr);
 
     DEFINE_SETTING_NAME_GROUP()
 

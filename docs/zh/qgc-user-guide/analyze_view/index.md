@@ -8,5 +8,6 @@
 
 - [日志下载](../analyze_view/log_download.md) - 列出、下载和清空设备上的日志。
 - [图像地理信息标签(PX4)](../analyze_view/geotag_images.md) - 利用飞行日志将航测图片打上地理信息(导入电脑后)。
+- [AI 飞行诊断 (PX4)](../analyze_view/ai_flight_diagnostics.md) — 对 PX4 飞行器数据和用户主动附加的 Console 证据进行受安全边界约束的实验性分析。
 - [MAVLink 控制台 (PX4)](../analyze_view/mavlink_console.md) — 读写存取 nsh shell 在已经启动运行的设备上。
 - [MAVLink 检查器](../analyze_view/mavlink_inspector.md) — 显示和记录已接收到的 信息/参数。

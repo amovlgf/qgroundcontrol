@@ -8,8 +8,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         LogDownloadTest.h
         MavlinkLogTest.cc
         MavlinkLogTest.h
-        MAVLinkConsoleAIControllerTest.cc
-        MAVLinkConsoleAIControllerTest.h
+        AIDiagnosticControllerTest.cc
+        AIDiagnosticControllerTest.h
         CodexAppServerClientTest.cc
         CodexAppServerClientTest.h
         PX4LogParserTest.cc

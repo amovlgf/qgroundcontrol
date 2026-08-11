@@ -20,28 +20,28 @@ import QGroundControl.Palette
 import QGroundControl.ScreenTools
 
 SettingsPage {
-    property var  _aiConsoleSettings: QGroundControl.settingsManager.aiConsoleSettings
+    property var  _aiAssistantSettings: QGroundControl.settingsManager.aiAssistantSettings
     property real _fieldWidth:        ScreenTools.defaultFontPixelWidth * 42
-    property bool _isChatGpt:         _aiConsoleSettings.authMethod.rawValue === 1
+    property bool _isChatGpt:         _aiAssistantSettings.authMethod.rawValue === 1
 
     QGCPalette {
         id: qgcPal
     }
 
-    MAVLinkConsoleAIController {
+    AIDiagnosticController {
         id: aiAuthController
     }
 
     SettingsGroupLayout {
         Layout.fillWidth:   true
         heading:            qsTr("AI Assistant")
-        headingDescription: qsTr("The MAVLink Console AI assistant sends active vehicle status and recent console output to the selected provider.")
+        headingDescription: qsTr("The PX4 AI flight diagnostic assistant sends active vehicle status and any console evidence you explicitly attach to the selected provider.")
 
         LabelledFactComboBox {
             Layout.fillWidth:           true
             comboBoxPreferredWidth:     _fieldWidth
             label:                      qsTr("Authentication")
-            fact:                       _aiConsoleSettings.authMethod
+            fact:                       _aiAssistantSettings.authMethod
             indexModel:                 false
         }
 
@@ -49,7 +49,7 @@ SettingsPage {
             Layout.fillWidth:           true
             textFieldPreferredWidth:    _fieldWidth
             label:                      qsTr("Endpoint URL")
-            fact:                       _aiConsoleSettings.endpointUrl
+            fact:                       _aiAssistantSettings.endpointUrl
             visible:                    !_isChatGpt
         }
 
@@ -57,7 +57,7 @@ SettingsPage {
             Layout.fillWidth:           true
             textFieldPreferredWidth:    _fieldWidth
             label:                      qsTr("Model")
-            fact:                       _aiConsoleSettings.modelName
+            fact:                       _aiAssistantSettings.modelName
             visible:                    !_isChatGpt
         }
 
@@ -65,7 +65,7 @@ SettingsPage {
             Layout.fillWidth:           true
             textFieldPreferredWidth:    _fieldWidth
             label:                      qsTr("API key (optional)")
-            fact:                       _aiConsoleSettings.apiKey
+            fact:                       _aiAssistantSettings.apiKey
             textField.echoMode:         TextInput.Password
             visible:                    !_isChatGpt
         }

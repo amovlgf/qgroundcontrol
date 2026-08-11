@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">PX4 diagnostic provider and local safety checks</title>
+  <desc id="desc">A decision flow showing that unsupported firmware and unsafe vehicle states are denied before any whitelisted read-only tool can reach a bound PX4 vehicle.</desc>
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L10,5 L0,10 z" fill="#44546a"/>
+    </marker>
+    <style>
+      .title { font: 700 30px sans-serif; fill: #14213d; }
+      .subtitle { font: 16px sans-serif; fill: #52606d; }
+      .head { font: 700 18px sans-serif; fill: #14213d; }
+      .text { font: 15px sans-serif; fill: #243b53; }
+      .small { font: 13px sans-serif; fill: #52606d; }
+      .shape { stroke-width: 2; }
+      .flow { fill: none; stroke: #44546a; stroke-width: 2.4; marker-end: url(#arrow2); }
+      .denyflow { fill: none; stroke: #c0392b; stroke-width: 2.2; marker-end: url(#arrow2); }
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="#f7fafc"/>
+  <text x="720" y="48" text-anchor="middle" class="title">PX4 Provider &amp; Local Safety Validation</text>
+  <text x="720" y="76" text-anchor="middle" class="subtitle">模型只能提出请求；QGroundControl 本地策略决定是否执行</text>
+
+  <rect x="535" y="110" width="370" height="76" rx="38" fill="#e6f6ff" stroke="#168aad" class="shape"/>
+  <text x="720" y="141" text-anchor="middle" class="head">Question or structured tool call</text>
+  <text x="720" y="166" text-anchor="middle" class="text">问题或结构化工具请求</text>
+
+  <polygon points="720,225 930,300 720,375 510,300" fill="#f4edff" stroke="#805ad5" class="shape"/>
+  <text x="720" y="288" text-anchor="middle" class="head">Supported PX4 Vehicle?</text>
+  <text x="720" y="314" text-anchor="middle" class="text">是否为支持的 PX4 Vehicle？</text>
+  <text x="720" y="338" text-anchor="middle" class="small">No vehicle is allowed only for attachment analysis</text>
+
+  <rect x="80" y="262" width="300" height="76" rx="14" fill="#fce8e6" stroke="#c0392b" class="shape"/>
+  <text x="230" y="293" text-anchor="middle" class="head">Reject before network/tool</text>
+  <text x="230" y="319" text-anchor="middle" class="text">非 PX4：请求前拒绝</text>
+
+  <polygon points="720,425 935,500 720,575 505,500" fill="#fff7e6" stroke="#e09f3e" class="shape"/>
+  <text x="720" y="478" text-anchor="middle" class="head">Vehicle-side operation?</text>
+  <text x="720" y="504" text-anchor="middle" class="text">是否需要向 Vehicle 发送请求？</text>
+  <text x="720" y="530" text-anchor="middle" class="small">In-memory reads bypass the vehicle-side gate</text>
+
+  <rect x="1030" y="462" width="330" height="76" rx="14" fill="#eafaf1" stroke="#2d936c" class="shape"/>
+  <text x="1195" y="493" text-anchor="middle" class="head">Read current QGC data</text>
+  <text x="1195" y="519" text-anchor="middle" class="text">读取当前 QGC 内存数据</text>
+
+  <polygon points="720,615 935,690 720,765 505,690" fill="#fff1f0" stroke="#d1495b" class="shape"/>
+  <text x="720" y="659" text-anchor="middle" class="head">Disarmed, not flying, link OK,</text>
+  <text x="720" y="684" text-anchor="middle" class="head">same bound Vehicle?</text>
+  <text x="720" y="712" text-anchor="middle" class="text">已上锁、未飞行、链路正常、Vehicle 未切换？</text>
+
+  <rect x="80" y="650" width="300" height="82" rx="14" fill="#fce8e6" stroke="#c0392b" class="shape"/>
+  <text x="230" y="681" text-anchor="middle" class="head">Reject / cancel / clear approval</text>
+  <text x="230" y="708" text-anchor="middle" class="text">拒绝或取消，并清除审批</text>
+
+  <rect x="1000" y="620" width="360" height="140" rx="14" fill="#edf2ff" stroke="#5267df" class="shape"/>
+  <text x="1180" y="652" text-anchor="middle" class="head">Local whitelist and call limits</text>
+  <text x="1180" y="679" text-anchor="middle" class="text">Console: fixed read-only commands</text>
+  <text x="1180" y="704" text-anchor="middle" class="text">MAVLink: fixed data-message IDs</text>
+  <text x="1180" y="729" text-anchor="middle" class="small">No parameter write or flight-control tool</text>
+
+  <rect x="510" y="810" width="420" height="70" rx="14" fill="#eafaf1" stroke="#2d936c" class="shape"/>
+  <text x="720" y="839" text-anchor="middle" class="head">Execute bounded read-only operation</text>
+  <text x="720" y="864" text-anchor="middle" class="text">执行受限只读操作并返回证据</text>
+
+  <rect x="1010" y="810" width="350" height="70" rx="14" fill="#fff7e6" stroke="#e09f3e" class="shape"/>
+  <text x="1185" y="839" text-anchor="middle" class="head">Approval required</text>
+  <text x="1185" y="864" text-anchor="middle" class="text">REQUEST_MESSAGE / SET_INTERVAL</text>
+
+  <path d="M720 186 V225" class="flow"/>
+  <path d="M510 300 H380" class="denyflow"/>
+  <text x="430" y="286" class="small" fill="#c0392b">No / 否</text>
+  <path d="M720 375 V425" class="flow"/>
+  <text x="735" y="406" class="small">Yes / 是</text>
+  <path d="M935 500 H1030" class="flow"/>
+  <text x="963" y="486" class="small">No</text>
+  <path d="M720 575 V615" class="flow"/>
+  <text x="735" y="602" class="small">Yes</text>
+  <path d="M505 690 H380" class="denyflow"/>
+  <text x="430" y="676" class="small" fill="#c0392b">No / 否</text>
+  <path d="M935 690 H1000" class="flow"/>
+  <text x="950" y="676" class="small">Yes</text>
+  <path d="M1180 760 V810" class="flow"/>
+  <path d="M1000 735 L900 810" class="flow"/>
+  <path d="M1185 810 V780 H920" class="flow"/>
+  <text x="1025" y="795" class="small">User approves / 用户确认</text>
+  <path d="M1195 538 V590 H900 V810" class="flow"/>
+</svg>

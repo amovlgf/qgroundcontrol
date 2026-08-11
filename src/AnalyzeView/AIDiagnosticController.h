@@ -26,13 +26,14 @@
 #include <QtPositioning/QGeoCoordinate>
 
 #include "CodexAppServerClient.h"
+#include "PX4DiagnosticProvider.h"
 #include "Vehicle.h"
 
 class Fact;
 class FactGroup;
-class AIConsoleSettings;
+class AIAssistantSettings;
 
-class MAVLinkConsoleAIController : public QObject
+class AIDiagnosticController : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
@@ -53,10 +54,13 @@ class MAVLinkConsoleAIController : public QObject
     Q_PROPERTY(QVariantList chatGptModels READ chatGptModels NOTIFY chatGptModelsChanged)
     Q_PROPERTY(QStringList chatGptModelNames READ chatGptModelNames NOTIFY chatGptModelsChanged)
     Q_PROPERTY(int chatGptModelIndex READ chatGptModelIndex NOTIFY chatGptModelsChanged)
+    Q_PROPERTY(bool activeVehicleAvailable READ activeVehicleAvailable NOTIFY activeVehicleChanged)
+    Q_PROPERTY(bool activeVehicleSupported READ activeVehicleSupported NOTIFY activeVehicleChanged)
+    Q_PROPERTY(QString activeVehicleStatusText READ activeVehicleStatusText NOTIFY activeVehicleChanged)
 
 public:
-    explicit MAVLinkConsoleAIController(QObject *parent = nullptr);
-    ~MAVLinkConsoleAIController() override;
+    explicit AIDiagnosticController(QObject *parent = nullptr);
+    ~AIDiagnosticController() override;
 
     bool busy() const { return _busy; }
     bool configured() const;
@@ -76,9 +80,12 @@ public:
     QVariantList chatGptModels() const { return _chatGptModels; }
     QStringList chatGptModelNames() const;
     int chatGptModelIndex() const { return _chatGptModelIndex; }
+    bool activeVehicleAvailable() const;
+    bool activeVehicleSupported() const;
+    QString activeVehicleStatusText() const;
 
     Q_INVOKABLE void ask(const QString &question);
-    Q_INVOKABLE void askWithContext(const QString &question, const QString &consoleText);
+    Q_INVOKABLE void askWithEvidence(const QString &question, const QString &consoleText);
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void clearConversation();
     Q_INVOKABLE void approvePendingAction();
@@ -104,14 +111,18 @@ signals:
     void answerReady(const QString &answer);
     void conversationCleared();
     void requestFailed(const QString &errorText);
+    void activeVehicleChanged();
 
 private slots:
     void _replyFinished();
     void _requestTimedOut();
     void _consoleCommandTimedOut();
     void _receiveConsoleData(uint8_t device, uint8_t flags, uint16_t timeout, uint32_t baudrate, const QByteArray &data);
+    void _activeVehicleChanged(Vehicle *vehicle);
 
 private:
+    friend class AIDiagnosticControllerTest;
+
     enum ToolExecutionKind {
         ToolExecutionImmediate,
         ToolExecutionConsole,
@@ -132,7 +143,7 @@ private:
     };
 
     struct AIToolCallbackData {
-        QPointer<MAVLinkConsoleAIController> controller;
+        QPointer<AIDiagnosticController> controller;
         QPointer<Vehicle> vehicle;
         PendingConsoleToolCommand toolCommand;
     };
@@ -145,6 +156,8 @@ private:
     void _handleCodexNotification(const QString &method, const QJsonObject &params);
     void _startChatGptThread(const QString &question, const QString &consoleText);
     void _startChatGptTurn(const QString &threadId, const QString &question, const QString &consoleText);
+    static QString _responseLanguagePolicy();
+    QString _standardSystemPrompt() const;
     QString _chatGptPrompt(const QString &question, const QString &consoleText) const;
     void _setChatGptLoginInProgress(bool inProgress);
     void _setChatGptStatus(const QString &statusText);
@@ -154,19 +167,15 @@ private:
     QString _formatNetworkErrorText(QNetworkReply::NetworkError networkError, const QUrl &url, const QString &errorText, const QByteArray &payload = QByteArray(), int httpStatusCode = 0) const;
     QString _responseErrorText(const QByteArray &payload) const;
     bool _shouldRetryNetworkError(QNetworkReply::NetworkError networkError) const;
-    QString _authorizationHeaderValue(AIConsoleSettings *settings) const;
+    QString _authorizationHeaderValue(AIAssistantSettings *settings) const;
     QByteArray _formData(const QList<QPair<QString, QString>> &fields) const;
     bool _postChatRequest(const QJsonArray &messages, bool includeTools, const QString &toolChoice = QString());
     QJsonArray _buildToolDefinitions() const;
     QJsonObject _buildVehicleSnapshot(Vehicle *vehicle) const;
-    QJsonObject _buildDiagnosticEvidenceJson(Vehicle *vehicle) const;
-    QJsonObject _coordinateToJson(const QGeoCoordinate &coordinate) const;
-    QJsonObject _buildSysStatusSensorInfoJson(Vehicle *vehicle) const;
+    QJsonObject _buildRequestContext(Vehicle *vehicle, const QString &consoleText, bool *consoleTextTruncated = nullptr) const;
     QJsonObject _buildHealthAndArmingCheckReportJson(Vehicle *vehicle) const;
     QJsonObject _buildLinkStatusJson(Vehicle *vehicle) const;
     QJsonObject _factGroupToJson(const FactGroup *factGroup) const;
-    QJsonObject _factToJson(const Fact *fact) const;
-    QJsonValue _variantToJson(const QVariant &value) const;
     QJsonObject _parameterToJson(const Fact *fact) const;
     QJsonObject _mavlinkMessageToJson(const mavlink_message_t &message) const;
     QString _trimConsoleContext(const QString &consoleText, bool *truncated) const;
@@ -175,8 +184,6 @@ private:
     PendingConsoleToolCommand _makeParamToolCommand(const QString &toolCallId, const QString &paramName) const;
     QJsonObject _toolCallMessageForCommands(const QList<PendingConsoleToolCommand> &toolCommands) const;
     QJsonObject _toolCallObjectForCommand(const PendingConsoleToolCommand &toolCommand) const;
-    QString _firstPx4ParameterNameInQuestion(const QString &question) const;
-    bool _questionContainsAny(const QString &normalizedQuestion, const QStringList &needles) const;
     void _startToolExecution(const QJsonArray &toolCalls);
     void _appendToolResult(const PendingConsoleToolCommand &toolCommand, const QJsonObject &result);
     bool _buildAIToolCommand(const QJsonObject &toolCall, PendingConsoleToolCommand *toolCommand, QJsonObject *immediateResult) const;
@@ -203,6 +210,9 @@ private:
     static void _requestMessageResultHandler(void *resultHandlerData, MAV_RESULT commandResult, Vehicle::RequestMessageResultHandlerFailureCode_t failureCode, const mavlink_message_t &message);
     static void _mavCommandResultHandler(void *resultHandlerData, int compId, const mavlink_command_ack_t &ack, Vehicle::MavCmdResultFailureCode_t failureCode);
     void _clearPendingChatState();
+    void _bindRequestVehicle(Vehicle *vehicle);
+    void _unbindRequestVehicle();
+    void _observeActiveVehicle(Vehicle *vehicle);
     void _appendConversationMessage(const QString &role, const QString &content);
     void _setBusy(bool busy);
     void _setErrorText(const QString &errorText);
@@ -211,6 +221,8 @@ private:
 
     QNetworkAccessManager _networkManager;
     CodexAppServerClient _codexClient;
+    PX4DiagnosticProvider _px4Provider;
+    QPointer<Vehicle> _requestVehicle;
     QNetworkReply *_reply = nullptr;
     QTimer _timeoutTimer;
     QTimer _consoleCommandTimer;
@@ -222,6 +234,9 @@ private:
     PendingConsoleToolCommand _activeMavlinkToolCommand;
     PendingConsoleToolCommand _pendingApprovalToolCommand;
     QMetaObject::Connection _consoleDataConnection;
+    QMetaObject::Connection _requestVehicleDestroyedConnection;
+    QMetaObject::Connection _requestVehicleCommunicationConnection;
+    QList<QMetaObject::Connection> _activeVehicleStatusConnections;
     QByteArray _activeConsoleOutput;
     QString _errorText;
     QString _pendingActionTitle;
@@ -245,6 +260,7 @@ private:
     int _remainingConsoleCommands = 0;
     int _remainingLowPrivilegeMavlinkCommands = 0;
     int _networkRetryCount = 0;
+    quint64 _requestGeneration = 0;
     bool _pendingRequestIncludesTools = false;
     bool _internalToolMarkupRetryUsed = false;
     bool _automaticToolExecution = false;
@@ -254,6 +270,7 @@ private:
     bool _chatGptSignedIn = false;
     bool _chatGptLoginInProgress = false;
     bool _chatGptLoginRequested = false;
+    bool _requestUsesChatGpt = false;
 
     static constexpr int kRequestTimeoutMsec = 30000;
     static constexpr int kNetworkRetryDelayMsec = 1200;

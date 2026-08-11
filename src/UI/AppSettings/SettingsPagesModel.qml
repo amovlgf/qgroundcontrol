@@ -50,7 +50,7 @@ ListModel {
 
     ListElement {
         name: qsTr("AI Assistant")
-        url: "qrc:/qml/QGroundControl/AppSettings/AIConsoleSettings.qml"
+        url: "qrc:/qml/QGroundControl/AppSettings/AIAssistantSettings.qml"
         iconUrl: "qrc:/InstrumentValueIcons/conversation.svg"
         pageVisible: function() { return true }
     }

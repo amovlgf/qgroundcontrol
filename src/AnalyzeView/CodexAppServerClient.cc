@@ -266,8 +266,8 @@ void CodexAppServerClient::_sendInitialize()
 {
     const QJsonObject params{
         { QStringLiteral("clientInfo"), QJsonObject{
-            { QStringLiteral("name"), QStringLiteral("mavlink_console_ai") },
-            { QStringLiteral("title"), QStringLiteral("MAVLink Console AI Assistant") },
+            { QStringLiteral("name"), QStringLiteral("px4_ai_flight_diagnostics") },
+            { QStringLiteral("title"), QStringLiteral("PX4 AI Flight Diagnostics") },
             { QStringLiteral("version"), QCoreApplication::applicationVersion() }
         } }
     };

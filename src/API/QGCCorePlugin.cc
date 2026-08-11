@@ -103,6 +103,10 @@ const QVariantList &QGCCorePlugin::analyzePages()
             tr("Vibration"),
             QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/VibrationPage.qml")),
             QUrl::fromUserInput(QStringLiteral("qrc:/qmlimages/VibrationPageIcon")))),
+        QVariant::fromValue(new QmlComponentInfo(
+            tr("AI Flight Diagnostics"),
+            QUrl::fromUserInput(QStringLiteral("qrc:/qml/QGroundControl/AnalyzeView/AIDiagnosticPage.qml")),
+            QUrl::fromUserInput(QStringLiteral("qrc:/InstrumentValueIcons/conversation.svg")))),
     };
 
     return analyzeList;

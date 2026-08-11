@@ -47,7 +47,7 @@
     </qresource>
     <qresource prefix="/json">
         <file alias="ADSBVehicleManager.SettingsGroup.json">src/Settings/ADSBVehicleManager.SettingsGroup.json</file>
-        <file alias="AIConsole.SettingsGroup.json">src/Settings/AIConsole.SettingsGroup.json</file>
+        <file alias="AIAssistant.SettingsGroup.json">src/Settings/AIAssistant.SettingsGroup.json</file>
         <file alias="APMMavlinkStreamRate.SettingsGroup.json">src/Settings/APMMavlinkStreamRate.SettingsGroup.json</file>
         <file alias="App.SettingsGroup.json">src/Settings/App.SettingsGroup.json</file>
         <file alias="AutoConnect.SettingsGroup.json">src/Settings/AutoConnect.SettingsGroup.json</file>

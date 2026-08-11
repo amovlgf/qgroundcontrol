@@ -6,7 +6,7 @@
 {
     "name": "authMethod",
     "shortDesc": "Authentication",
-    "longDesc": "Authentication method used by the MAVLink Console AI assistant.",
+    "longDesc": "Authentication method used by the PX4 AI flight diagnostic assistant.",
     "type": "uint32",
     "enumStrings": "API Key,Sign in with ChatGPT",
     "enumValues": "0,1",
@@ -15,7 +15,7 @@
 {
     "name": "endpointUrl",
     "shortDesc": "Endpoint URL",
-    "longDesc": "OpenAI-compatible chat completions endpoint used by the MAVLink Console AI assistant.",
+    "longDesc": "OpenAI-compatible chat completions endpoint used by the PX4 AI flight diagnostic assistant.",
     "type": "string",
     "default": ""
 },

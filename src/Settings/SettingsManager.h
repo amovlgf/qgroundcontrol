@@ -14,7 +14,7 @@
 #include <QtQmlIntegration/QtQmlIntegration>
 
 class ADSBVehicleManagerSettings;
-class AIConsoleSettings;
+class AIAssistantSettings;
 class APMMavlinkStreamRateSettings;
 class AppSettings;
 class AutoConnectSettings;
@@ -45,7 +45,7 @@ class SettingsManager : public QObject
     // QML_ELEMENT
     // QML_UNCREATABLE("")
     Q_MOC_INCLUDE("ADSBVehicleManagerSettings.h")
-    Q_MOC_INCLUDE("AIConsoleSettings.h")
+    Q_MOC_INCLUDE("AIAssistantSettings.h")
 #ifndef QGC_NO_ARDUPILOT_DIALECT
     Q_MOC_INCLUDE("APMMavlinkStreamRateSettings.h")
 #endif
@@ -71,7 +71,8 @@ class SettingsManager : public QObject
     Q_MOC_INCLUDE("Viewer3DSettings.h")
 #endif
     Q_PROPERTY(QObject *adsbVehicleManagerSettings      READ adsbVehicleManagerSettings     CONSTANT)
-    Q_PROPERTY(QObject *aiConsoleSettings               READ aiConsoleSettings              CONSTANT)
+    Q_PROPERTY(QObject *aiAssistantSettings             READ aiAssistantSettings            CONSTANT)
+    Q_PROPERTY(QObject *aiConsoleSettings               READ aiConsoleSettings              CONSTANT) // Compatibility alias
 #ifndef QGC_NO_ARDUPILOT_DIALECT
     Q_PROPERTY(QObject *apmMavlinkStreamRateSettings    READ apmMavlinkStreamRateSettings   CONSTANT)
 #endif
@@ -106,7 +107,8 @@ public:
     void init();
 
     ADSBVehicleManagerSettings *adsbVehicleManagerSettings() const;
-    AIConsoleSettings *aiConsoleSettings() const;
+    AIAssistantSettings *aiAssistantSettings() const;
+    AIAssistantSettings *aiConsoleSettings() const;
 #ifndef QGC_NO_ARDUPILOT_DIALECT
     APMMavlinkStreamRateSettings *apmMavlinkStreamRateSettings() const;
 #endif
@@ -134,7 +136,7 @@ public:
 
 private:
     ADSBVehicleManagerSettings *_adsbVehicleManagerSettings = nullptr;
-    AIConsoleSettings *_aiConsoleSettings = nullptr;
+    AIAssistantSettings *_aiAssistantSettings = nullptr;
 #ifndef QGC_NO_ARDUPILOT_DIALECT
     APMMavlinkStreamRateSettings *_apmMavlinkStreamRateSettings = nullptr;
 #endif

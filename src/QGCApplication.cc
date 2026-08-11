@@ -49,7 +49,7 @@
 #include "LinkManager.h"
 #include "LogDownloadController.h"
 #include "MAVLinkChartController.h"
-#include "MAVLinkConsoleAIController.h"
+#include "AIDiagnosticController.h"
 #include "MAVLinkConsoleController.h"
 #include "MAVLinkProtocol.h"
 #include "MissionManager.h"
@@ -292,7 +292,7 @@ void QGCApplication::init()
 #endif
     qmlRegisterType<GeoTagController>("QGroundControl.Controllers", 1, 0, "GeoTagController");
     qmlRegisterType<LogDownloadController>("QGroundControl.Controllers", 1, 0, "LogDownloadController");
-    qmlRegisterType<MAVLinkConsoleAIController>("QGroundControl.Controllers", 1, 0, "MAVLinkConsoleAIController");
+    qmlRegisterType<AIDiagnosticController>("QGroundControl.Controllers", 1, 0, "AIDiagnosticController");
     qmlRegisterType<MAVLinkConsoleController>("QGroundControl.Controllers", 1, 0, "MAVLinkConsoleController");
 
 

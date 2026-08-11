@@ -59,6 +59,7 @@
 - [Analyze](qgc-user-guide/analyze_view/index.md)
   - [Log Download](qgc-user-guide/analyze_view/log_download.md)
   - [GeoTag Images (PX4)](qgc-user-guide/analyze_view/geotag_images.md)
+  - [AI Flight Diagnostics (PX4)](qgc-user-guide/analyze_view/ai_flight_diagnostics.md)
   - [MAVLink Console (PX4)](qgc-user-guide/analyze_view/mavlink_console.md)
   - [MAVLink Inspector](qgc-user-guide/analyze_view/mavlink_inspector.md)
 - [Releases](qgc-user-guide/releases/index.md)

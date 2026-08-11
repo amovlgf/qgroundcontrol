@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 z" fill="#475569"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <style>
+      .title { font: 700 34px sans-serif; fill: #0f172a; }
+      .section { font: 700 24px sans-serif; fill: #0f172a; }
+      .label { font: 700 22px sans-serif; fill: #0f172a; }
+      .text { font: 18px sans-serif; fill: #334155; }
+      .small { font: 16px sans-serif; fill: #475569; }
+      .box { stroke-width: 2; rx: 18; filter: url(#shadow); }
+      .arrow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 10 8; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="#f8fafc"/>
+  <text x="800" y="58" text-anchor="middle" class="title">QGroundControl AI 飞行诊断助手</text>
+  <text x="800" y="92" text-anchor="middle" class="small">只读诊断上下文流程 — 当前 ChatGPT/Codex 路径</text>
+
+  <rect x="60" y="170" width="250" height="170" fill="#e0f2fe" stroke="#0284c7" class="box"/>
+  <text x="185" y="218" text-anchor="middle" class="label">用户</text>
+  <text x="185" y="258" text-anchor="middle" class="text">自然语言</text>
+  <text x="185" y="286" text-anchor="middle" class="text">诊断问题</text>
+
+  <rect x="370" y="135" width="360" height="240" fill="#fef3c7" stroke="#d97706" class="box"/>
+  <text x="550" y="185" text-anchor="middle" class="label">QGroundControl</text>
+  <text x="550" y="218" text-anchor="middle" class="text">MAVLink Console 界面</text>
+  <text x="550" y="270" text-anchor="middle" class="small">AI 对话</text>
+  <text x="550" y="296" text-anchor="middle" class="small">设置与服务提供方选择</text>
+  <text x="550" y="322" text-anchor="middle" class="small">流式回答显示</text>
+
+  <rect x="790" y="135" width="360" height="240" fill="#ede9fe" stroke="#7c3aed" class="box"/>
+  <text x="970" y="185" text-anchor="middle" class="label">MAVLinkConsoleAIController</text>
+  <text x="970" y="235" text-anchor="middle" class="small">构建诊断上下文</text>
+  <text x="970" y="265" text-anchor="middle" class="small">区分事实与推断</text>
+  <text x="970" y="295" text-anchor="middle" class="small">应用本地安全规则</text>
+  <text x="970" y="325" text-anchor="middle" class="small">将回答返回给 QGC</text>
+
+  <rect x="1210" y="135" width="330" height="240" fill="#dcfce7" stroke="#16a34a" class="box"/>
+  <text x="1375" y="185" text-anchor="middle" class="label">AI 服务</text>
+  <text x="1375" y="235" text-anchor="middle" class="small">ChatGPT / Codex</text>
+  <text x="1375" y="265" text-anchor="middle" class="small">或 OpenAI-compatible API</text>
+  <text x="1375" y="315" text-anchor="middle" class="small">仅返回诊断回答</text>
+
+  <path d="M310 255 L370 255" class="arrow"/>
+  <path d="M730 255 L790 255" class="arrow"/>
+  <path d="M1150 255 L1210 255" class="arrow"/>
+  <path d="M1210 315 L1150 315" class="arrow"/>
+  <path d="M790 315 L730 315" class="arrow"/>
+
+  <text x="800" y="455" text-anchor="middle" class="section">提供给助手的上下文</text>
+
+  <rect x="90" y="510" width="310" height="170" fill="#ffffff" stroke="#94a3b8" class="box"/>
+  <text x="245" y="558" text-anchor="middle" class="label">飞行器状态快照</text>
+  <text x="245" y="600" text-anchor="middle" class="small">解锁与健康状态</text>
+  <text x="245" y="628" text-anchor="middle" class="small">位置、电池和传感器</text>
+  <text x="245" y="656" text-anchor="middle" class="small">估计器和链路状态</text>
+
+  <rect x="455" y="510" width="310" height="170" fill="#ffffff" stroke="#94a3b8" class="box"/>
+  <text x="610" y="558" text-anchor="middle" class="label">QGC 数据</text>
+  <text x="610" y="600" text-anchor="middle" class="small">FactGroups</text>
+  <text x="610" y="628" text-anchor="middle" class="small">已加载的 PX4 参数</text>
+  <text x="610" y="656" text-anchor="middle" class="small">健康与解锁检查报告</text>
+
+  <rect x="835" y="510" width="310" height="170" fill="#ffffff" stroke="#94a3b8" class="box"/>
+  <text x="990" y="558" text-anchor="middle" class="label">MAVLink Console</text>
+  <text x="990" y="600" text-anchor="middle" class="small">最近的控制台输出</text>
+  <text x="990" y="628" text-anchor="middle" class="small">PX4 诊断证据</text>
+  <text x="990" y="656" text-anchor="middle" class="small">可能缺失或被截断</text>
+
+  <rect x="1215" y="510" width="310" height="170" fill="#fee2e2" stroke="#dc2626" class="box"/>
+  <text x="1370" y="558" text-anchor="middle" class="label">安全边界</text>
+  <text x="1370" y="600" text-anchor="middle" class="small">不执行解锁或飞行控制</text>
+  <text x="1370" y="628" text-anchor="middle" class="small">不写入参数</text>
+  <text x="1370" y="656" text-anchor="middle" class="small">不执行任意命令</text>
+
+  <path d="M245 510 L550 375" class="arrow dashed"/>
+  <path d="M610 510 L780 375" class="arrow dashed"/>
+  <path d="M990 510 L950 375" class="arrow dashed"/>
+  <path d="M1370 510 L1060 375" class="arrow dashed"/>
+
+  <rect x="240" y="760" width="1120" height="70" fill="#0f172a" rx="16"/>
+  <text x="800" y="805" text-anchor="middle" style="font: 700 20px sans-serif; fill: #ffffff;">当前 ChatGPT/Codex 路径只接收 QGroundControl 提供的上下文并生成诊断，不调用 QGroundControl 本地工具。</text>
+</svg>

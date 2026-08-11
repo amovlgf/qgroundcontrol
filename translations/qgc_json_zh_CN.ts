@@ -2,6 +2,124 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="zh-CN" sourcelanguage="en">
   <context>
+    <name>AIAssistant.SettingsGroup.json</name>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[authMethod].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Authentication</source>
+      <translation>身份验证</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[authMethod].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Authentication method used by the PX4 AI flight diagnostic assistant.</source>
+      <translation>PX4 AI 飞行诊断助手使用的身份验证方式。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[authMethod].enumStrings, </extracomment>
+      <translatorcomment>Only use english comma &apos;,&apos; to separate strings</translatorcomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>API Key,Sign in with ChatGPT</source>
+      <translation>API 密钥,使用 ChatGPT 登录</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[endpointUrl].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Endpoint URL</source>
+      <translation>端点 URL</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[endpointUrl].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>OpenAI-compatible chat completions endpoint used by the PX4 AI flight diagnostic assistant.</source>
+      <translation>PX4 AI 飞行诊断助手使用的兼容 OpenAI 的聊天补全端点。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[modelName].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Model</source>
+      <translation>模型</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[modelName].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Model name sent to the configured OpenAI-compatible endpoint.</source>
+      <translation>发送给已配置的 OpenAI 兼容端点的模型名称。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[chatGptModelName].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>ChatGPT model</source>
+      <translation>ChatGPT 模型</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[chatGptModelName].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Model identifier selected from the models provided by Codex App Server.</source>
+      <translation>从 Codex App Server 提供的模型中选择的模型标识符。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[apiKey].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>API key</source>
+      <translation>API 密钥</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[apiKey].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Personal bearer token sent to the configured endpoint. Leave empty for local endpoints that do not require authentication.</source>
+      <translation>发送给已配置端点的个人持有者令牌。不需要身份验证的本地端点可留空。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthDeviceAuthorizationUrl].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Device authorization URL</source>
+      <translation>设备授权 URL</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthDeviceAuthorizationUrl].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Deprecated OAuth 2.0 device authorization endpoint. This field is retained for settings compatibility and is not used by ChatGPT sign-in.</source>
+      <translation>已弃用的 OAuth 2.0 设备授权端点。保留此字段仅用于设置兼容性，ChatGPT 登录不会使用它。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthTokenUrl].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Token URL</source>
+      <translation>令牌 URL</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthTokenUrl].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Deprecated OAuth 2.0 token endpoint. This field is retained for settings compatibility and is not used by ChatGPT sign-in.</source>
+      <translation>已弃用的 OAuth 2.0 令牌端点。保留此字段仅用于设置兼容性，ChatGPT 登录不会使用它。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthClientId].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Client ID</source>
+      <translation>客户端 ID</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthClientId].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Deprecated OAuth client ID. This field is retained for settings compatibility and is not used by ChatGPT sign-in.</source>
+      <translation>已弃用的 OAuth 客户端 ID。保留此字段仅用于设置兼容性，ChatGPT 登录不会使用它。</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthScope].shortDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Scope</source>
+      <translation>作用域</translation>
+    </message>
+    <message>
+      <extracomment>.QGC.MetaData.Facts[oauthScope].longDesc, </extracomment>
+      <location filename="../src/Settings/AIAssistant.SettingsGroup.json"/>
+      <source>Deprecated OAuth scope. This field is retained for settings compatibility and is not used by ChatGPT sign-in.</source>
+      <translation>已弃用的 OAuth 作用域。保留此字段仅用于设置兼容性，ChatGPT 登录不会使用它。</translation>
+    </message>
+  </context>
+  <context>
     <name>GimbalFact.json</name>
     <message>
       <extracomment>.QGC.MetaData.Facts[gimbalRoll].shortDesc, </extracomment>
