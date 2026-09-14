@@ -1,0 +1,69 @@
+name: AI Experimental Release
+
+on:
+  push:
+    tags:
+      - 'v*-ai.*'
+    branches:
+      - 'codex/ai-release-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test release validation
+        run: python3 -m unittest discover -s tools/ai_release -p 'test_*.py' -v
+      - name: Validate AI source and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/ai_release/ai_release.py validate
+
+  windows:
+    needs: validate
+    uses: ./.github/workflows/windows.yml
+    with:
+      ai_release: true
+
+  linux:
+    needs: validate
+    uses: ./.github/workflows/linux.yml
+    with:
+      ai_release: true
+
+  draft:
+    needs: [windows, linux]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ai-*
+          path: release
+          merge-multiple: true
+      - name: Verify packages and prepare release notes
+        run: python3 tools/ai_release/ai_release.py collect --directory release
+      - name: Save verified release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-ai-release
+          if-no-files-found: error
+          path: release/*
+      - name: Create or refresh draft only
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/ai_release/ai_release.py draft --directory release
