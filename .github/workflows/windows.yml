@@ -1,10 +1,12 @@
 name: Windows
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
       - 'Stable*'
+      - 'codex/qgc-ai-windows-*'
     tags:
       - 'v*'
     paths-ignore:
@@ -21,9 +23,13 @@ on:
 #   group: ${{ github.workflow }}-${{ github.ref }}
 #   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+permissions:
+  contents: read
+
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    timeout-minutes: 120
 
     strategy:
       matrix:
@@ -116,6 +122,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
               -DQT_HOST_PATH="${{ env.QT_ROOT_DIR }}/../msvc2022_64"
               -DQT_DEBUG_FIND_PACKAGE=ON
+              -DCMAKE_INSTALL_PREFIX="${{ runner.temp }}/qgc-ai-staging"
               -DQGC_STABLE_BUILD=${{ github.ref_type == 'tag' || contains(github.ref, 'Stable') && 'ON' || 'OFF' }}
 
       - name: Build
@@ -131,12 +138,77 @@ jobs:
         working-directory: ${{ runner.temp }}\shadow_build_dir
         run: cmake --install . --config ${{ matrix.BuildType }}
 
-      - name: Upload Build File
-        if: matrix.BuildType == 'Release'
-        uses: ./.github/actions/upload
+      - name: Verify installed AI application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:RUNNER_TEMP 'shadow_build_dir/QGroundControl-installer.exe'
+          if (-not (Test-Path $installer)) { throw 'Installer was not generated' }
+          # The hosted runner has no UAV hardware; skip the interactive driver MSI.
+          New-Item 'HKCU:\SOFTWARE\MichaelOborne\driver' -Force | Out-Null
+          New-ItemProperty 'HKCU:\SOFTWARE\MichaelOborne\driver' -Name installed -Value 1 -PropertyType DWord -Force | Out-Null
+          New-Item 'HKCU:\SOFTWARE\QGroundControlUAVDrivers' -Force | Out-Null
+          New-ItemProperty 'HKCU:\SOFTWARE\QGroundControlUAVDrivers' -Name version -Value 3 -PropertyType DWord -Force | Out-Null
+          $installDir = Join-Path $env:RUNNER_TEMP 'qgc-ai-install-test'
+          $installProcess = Start-Process $installer -ArgumentList '/S', "/D=$installDir" -PassThru
+          if (-not $installProcess.WaitForExit(180000)) {
+            $installProcess.Kill()
+            throw 'Installer timed out'
+          }
+          if ($installProcess.ExitCode -ne 0) { throw "Installer failed: $($installProcess.ExitCode)" }
+          $binary = Join-Path $installDir 'bin/QGroundControl.exe'
+          if (-not (Test-Path $binary)) { throw 'Installed executable is missing' }
+          $binaryText = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($binary))
+          foreach ($component in @('AIDiagnosticController', 'CodexAppServerClient', 'AIAssistantSettings')) {
+            if (-not $binaryText.Contains($component)) { throw "Missing AI component: $component" }
+            Write-Host "AI component verified: $component"
+          }
+          # Verify deployed dependencies without the build SDK directories on PATH.
+          $env:PATH = (($env:PATH -split ';') | Where-Object { $_ -and $_ -notmatch '(?i)gstreamer|msvc2022_64' }) -join ';'
+          foreach ($name in @('QT_PLUGIN_PATH', 'QML2_IMPORT_PATH', 'QML_IMPORT_PATH')) {
+            Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+          }
+          $boot = Start-Process $binary -ArgumentList '--simple-boot-test' -WorkingDirectory (Split-Path $binary) -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP/qgc-ai-boot.stdout.log" -RedirectStandardError "$env:RUNNER_TEMP/qgc-ai-boot.stderr.log"
+          if (-not $boot.WaitForExit(120000)) {
+            $boot.Kill()
+            throw 'Installed application boot test timed out'
+          }
+          Get-Content "$env:RUNNER_TEMP/qgc-ai-boot.stderr.log"
+          if ($boot.ExitCode -ne 0) { throw "Installed application failed to start: $($boot.ExitCode)" }
+          Write-Host 'Installed AI application boot test passed'
+
+      - name: Prepare installer and checksum
+        shell: pwsh
+        run: |
+          $packageDir = Join-Path $env:RUNNER_TEMP 'qgc-ai-package'
+          New-Item $packageDir -ItemType Directory -Force | Out-Null
+          $name = 'QGroundControl-AI-Windows-x64-20260914-installer.exe'
+          Copy-Item "$env:RUNNER_TEMP/shadow_build_dir/QGroundControl-installer.exe" (Join-Path $packageDir $name)
+          $hash = (Get-FileHash (Join-Path $packageDir $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content (Join-Path $packageDir 'SHA256SUMS.txt') -Encoding ascii
+          @(
+            'QGroundControl AI Assistant - Windows x64 Release',
+            'Application source: 5f869595db94f35c0a30bfdd5a1cb211a91e4fcd',
+            "Build commit: $env:GITHUB_SHA",
+            "Build run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID",
+            'Qt: 6.8.3; GStreamer: 1.22.12; toolchain: MSVC 2022',
+            'Validation: installed executable boot test; AI components present',
+            'Experimental build; installer is not code-signed.'
+          ) | Set-Content (Join-Path $packageDir 'BUILD-INFO.txt') -Encoding utf8
+
+      - name: Upload Windows AI installer
+        uses: actions/upload-artifact@v4
         with:
-          artifact_name: ${{ env.ARTIFACT }}
-          package_name: ${{ env.PACKAGE }}
-          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          name: QGroundControl-AI-Windows-x64-20260914
+          path: ${{ runner.temp }}/qgc-ai-package/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload boot logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QGroundControl-AI-Windows-boot-logs
+          path: ${{ runner.temp }}/qgc-ai-boot.*.log
+          if-no-files-found: ignore
+          retention-days: 7
