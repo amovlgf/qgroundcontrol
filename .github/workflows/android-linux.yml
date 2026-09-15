@@ -7,6 +7,7 @@ on:
       - 'Stable*'
     tags:
       - 'v*'
+      - '!v*-ai.*'
     paths-ignore:
       - 'docs/**' # Do not trigger for any changes under docs
   pull_request:

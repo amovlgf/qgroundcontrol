@@ -22,6 +22,9 @@ private slots:
     void _responseLanguagePolicy_test();
     void _px4ProviderBoundaryAndPolicy_test();
     void _vehicleSwitchAndStaleEventIsolation_test();
+    void _attachmentRequestAndCancel_test();
+    void _flightAndCommunicationPolicy_test();
+    void _unsupportedVehicleRequest_test();
     void _externalVisionInputPresentButNotConfigured_test();
     void _externalVisionFusionControl_test();
     void _externalVisionInvalidPayload_test();

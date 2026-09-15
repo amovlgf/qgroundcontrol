@@ -2,7 +2,7 @@
 
 **Experimental / Unofficial / AI diagnostics currently PX4 only.**
 
-This build contains the dedicated **Analyze Tools → AI Flight Diagnostics (PX4)** page described in the [Analyze-view forum update](https://discuss.px4.io/t/update-moving-the-safety-bounded-px4-ai-assistant-to-qgroundcontrol-analyze-view/49488). MAVLink Console is a separate tool again. The older `v5.0.8.1-ai.1` package contains the Console-integrated prototype.
+This build contains the dedicated **Analyze Tools → AI Flight Diagnostics** page described in the [Analyze-view forum update](https://discuss.px4.io/t/update-moving-the-safety-bounded-px4-ai-assistant-to-qgroundcontrol-analyze-view/49488). MAVLink Console is a separate tool again. The older `v5.0.8.1-ai.1` package contains the Console-integrated prototype.
 
 ## Downloads and provenance
 
@@ -30,7 +30,7 @@ The assistant cannot arm, disarm, move the vehicle, change modes, write paramete
 
 ## Validation and limitations
 
-The draft is generated only after both platform builds, Linux AI controller/protocol tests, Linux AppImage boot and Windows installed-package boot succeed. Windows USB driver installation is not part of the automated package check.
+The draft is generated only after both platform builds, Linux AI controller/protocol tests, Linux AppImage boot and Windows installed-package boot and normal main-window startup succeed. Windows USB driver installation is not part of the automated package check.
 
 Manual package/SITL acceptance and live AI-service checks must be recorded here before publication. A successful build alone is not evidence that those checks passed.
 

@@ -21,3 +21,24 @@ $boot = Start-Process -FilePath $binary -ArgumentList '--simple-boot-test' -Work
 if (-not $boot.WaitForExit(90000)) { $boot.Kill(); throw 'Installed application boot timed out' }
 if ($boot.ExitCode -ne 0) { throw "Installed application exited with $($boot.ExitCode)" }
 Write-Output 'Installed Windows package boot passed (USB driver installation not tested).'
+
+# The boot test exits before loading the QML application window.
+$gui = Start-Process -FilePath $binary -WorkingDirectory $installDir -PassThru
+try {
+    $deadline = (Get-Date).AddSeconds(60)
+    do {
+        Start-Sleep -Milliseconds 500
+        $gui.Refresh()
+        if ($gui.HasExited) { throw "Installed GUI exited before opening a window: $($gui.ExitCode)" }
+    } while ($gui.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline)
+    if ($gui.MainWindowHandle -eq 0) { throw 'Installed GUI did not open a window' }
+    Start-Sleep -Seconds 3
+    $gui.Refresh()
+    if ($gui.HasExited) { throw 'Installed GUI exited unexpectedly' }
+    Write-Output "Installed application window opened: $($gui.MainWindowTitle)"
+} finally {
+    if (-not $gui.HasExited) {
+        $null = $gui.CloseMainWindow()
+        if (-not $gui.WaitForExit(10000)) { $gui.Kill() }
+    }
+}

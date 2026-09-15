@@ -98,11 +98,11 @@ jobs:
         run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
               -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
               -DQGC_BUILD_TESTING=${{ matrix.BuildType == 'Debug' && 'ON' || 'OFF' }}
-              -DQGC_STABLE_BUILD=${{ !inputs.ai_release && (github.ref_type == 'tag' || contains(github.ref, 'Stable')) && 'ON' || 'OFF' }}
+              -DQGC_STABLE_BUILD=${{ (inputs.ai_release || github.ref_type == 'tag' || contains(github.ref, 'Stable')) && 'ON' || 'OFF' }}
 
       - name: Build
         working-directory: ${{ runner.temp }}/shadow_build_dir
-        run: cmake --build . --target all --config ${{ matrix.BuildType }} --parallel 2
+        run: cmake --build . --target all --config ${{ matrix.BuildType }}
 
       - name: Create AppImage
         if: matrix.BuildType == 'Release' || !inputs.ai_release

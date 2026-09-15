@@ -7,6 +7,7 @@ on:
       - 'Stable*'
     tags:
       - 'v*'
+      - '!v*-ai.*'
   pull_request:
     paths:
       - '.github/workflows/custom.yml'

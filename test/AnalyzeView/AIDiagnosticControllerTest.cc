@@ -16,6 +16,11 @@
 #include "QGCMAVLink.h"
 #include "SettingsManager.h"
 #include "Vehicle.h"
+#include "VehicleLinkManager.h"
+
+#include <QtCore/QJsonDocument>
+#include <QtNetwork/QTcpServer>
+#include <QtNetwork/QTcpSocket>
 
 #include <QtQml/QQmlComponent>
 #include <QtQml/QQmlEngine>
@@ -186,6 +191,97 @@ void AIDiagnosticControllerTest::_vehicleSwitchAndStaleEventIsolation_test()
     QCOMPARE(controller._chatGptAnswer, QStringLiteral("accepted"));
 
     controller.clearConversation();
+}
+
+void AIDiagnosticControllerTest::_attachmentRequestAndCancel_test()
+{
+    QTcpServer server;
+    QVERIFY(server.listen(QHostAddress::LocalHost));
+    AIAssistantSettings *settings = SettingsManager::instance()->aiAssistantSettings();
+    settings->authMethod()->setRawValue(0);
+    settings->endpointUrl()->setRawValue(QStringLiteral("http://127.0.0.1:%1/v1/chat/completions").arg(server.serverPort()));
+    settings->modelName()->setRawValue(QStringLiteral("local-acceptance-test"));
+    settings->apiKey()->setRawValue(QString());
+
+    AIDiagnosticController controller;
+    QSignalSpy failed(&controller, &AIDiagnosticController::requestFailed);
+    controller.ask(QStringLiteral("Explain this snapshot."));
+    QCOMPARE(failed.count(), 1);
+    QVERIFY(!controller.busy());
+    QVERIFY(!server.hasPendingConnections());
+
+    controller.askWithEvidence(QStringLiteral("Explain this attachment."),
+                               QStringLiteral("OLD_PREFIX") + QString(12500, QLatin1Char('x')) + QStringLiteral("EVIDENCE_END"));
+    QVERIFY(controller.busy());
+    QTRY_VERIFY_WITH_TIMEOUT(server.hasPendingConnections(), 5000);
+    QScopedPointer<QTcpSocket> socket(server.nextPendingConnection());
+    QByteArray request;
+    QJsonDocument document;
+    const auto receivedBody = [&]() {
+        request += socket->readAll();
+        const int start = request.indexOf("\r\n\r\n");
+        if (start < 0) return false;
+        document = QJsonDocument::fromJson(request.mid(start + 4));
+        return document.isObject();
+    };
+    QTRY_VERIFY_WITH_TIMEOUT(receivedBody(), 5000);
+    QVERIFY(!document.object().contains(QStringLiteral("tools")));
+    const QByteArray body = document.toJson(QJsonDocument::Compact);
+    QVERIFY(!body.contains("OLD_PREFIX"));
+    QVERIFY(body.contains("EVIDENCE_END"));
+    QVERIFY(body.contains("truncated\\\":true"));
+    QVERIFY(controller._requestVehicle.isNull());
+    controller.cancel();
+    QVERIFY(!controller.busy());
+    QVERIFY(!controller.pendingActionAvailable());
+    QVERIFY(!controller._reply);
+}
+
+void AIDiagnosticControllerTest::_flightAndCommunicationPolicy_test()
+{
+    _connectMockLink();
+    PX4DiagnosticProvider provider;
+    QString error;
+    const QString tool = QStringLiteral("request_mavlink_message");
+    QVERIFY(provider.validateLowPrivilegeMavlinkTool(_vehicle, tool, &error));
+    _vehicle->setArmed(true, false);
+    QTRY_VERIFY_WITH_TIMEOUT(_vehicle->armed(), 5000);
+    QVERIFY(!provider.validateLowPrivilegeMavlinkTool(_vehicle, tool, &error));
+    _vehicle->setArmed(false, false);
+    QTRY_VERIFY_WITH_TIMEOUT(!_vehicle->armed(), 5000);
+    _vehicle->_setFlying(true);
+    QVERIFY(!provider.validateLowPrivilegeMavlinkTool(_vehicle, tool, &error));
+    _vehicle->_setFlying(false);
+    QVERIFY(provider.validateLowPrivilegeMavlinkTool(_vehicle, tool, &error));
+
+    AIDiagnosticController controller;
+    controller._bindRequestVehicle(_vehicle);
+    controller._busy = true;
+    AIDiagnosticController::PendingConsoleToolCommand command;
+    command.toolName = tool;
+    command.executionKind = AIDiagnosticController::ToolExecutionRequestMessage;
+    command.messageId = MAVLINK_MSG_ID_ATTITUDE;
+    controller._setPendingApproval(command);
+    QVERIFY(controller.pendingActionAvailable());
+    _mockLink->setCommLost(true);
+    QTRY_VERIFY_WITH_TIMEOUT(_vehicle->vehicleLinkManager()->communicationLost(), 10000);
+    QVERIFY(!provider.validateLowPrivilegeMavlinkTool(_vehicle, tool, &error));
+    QVERIFY(!controller.busy());
+    QVERIFY(!controller.pendingActionAvailable());
+    QVERIFY(controller._requestVehicle.isNull());
+    _mockLink->setCommLost(false);
+}
+
+void AIDiagnosticControllerTest::_unsupportedVehicleRequest_test()
+{
+    _connectMockLink(MAV_AUTOPILOT_ARDUPILOTMEGA);
+    AIDiagnosticController controller;
+    QSignalSpy failed(&controller, &AIDiagnosticController::requestFailed);
+    controller.askWithEvidence(QStringLiteral("Explain this snapshot."), QStringLiteral("Explicit Console attachment"));
+    QCOMPARE(failed.count(), 1);
+    QVERIFY(!controller.busy());
+    QVERIFY(controller.errorText().contains(QStringLiteral("PX4")));
+    QVERIFY(!controller._reply);
 }
 
 void AIDiagnosticControllerTest::_externalVisionInputPresentButNotConfigured_test()
