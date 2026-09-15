@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import xml.etree.ElementTree as ET
 
 PACKAGES = {
     "windows": "QGroundControl-installer.exe",
@@ -102,8 +103,9 @@ def verify_packages(directory, expected):
 def collect(directory):
     expected = identity()
     builds = verify_packages(directory, expected)
+    tests = verify_test_report(directory / "ai-tests.xml")
     run_url = f"https://github.com/{expected['repository']}/actions/runs/{expected['run_id']}"
-    info = dict(expected, run_url=run_url, builds=builds)
+    info = dict(expected, run_url=run_url, builds=builds, passed_test_suites=tests)
     (directory / "BUILD_INFO.json").write_text(json.dumps(info, indent=2) + "\n", encoding="utf-8")
     names = [*PACKAGES.values(), "BUILD_INFO.json"]
     (directory / "SHA256SUMS.txt").write_text("".join(f"{digest(directory / name)}  {name}\n" for name in names), encoding="utf-8")
@@ -112,6 +114,20 @@ def collect(directory):
                        "REPOSITORY": expected["repository"], "RUN_URL": run_url}.items():
         template = template.replace("{{" + key + "}}", value)
     (directory / "RELEASE_NOTES.md").write_text(template, encoding="utf-8")
+
+
+def verify_test_report(path):
+    root = ET.parse(path).getroot()
+    cases = root.findall(".//testcase")
+    expected = {"AIDiagnosticControllerTest", "CodexAppServerClientTest"}
+    if len(cases) != 2 or {case.get("name") for case in cases} != expected:
+        raise ValueError("Both AI test suites must appear in the executed test report")
+    for case in cases:
+        if any(case.find(marker) is not None for marker in ("failure", "error", "skipped")):
+            raise ValueError("Failed or skipped AI test suite")
+        if case.get("status", "run") not in ("run", "passed"):
+            raise ValueError("AI test suite was not executed")
+    return sorted(expected)
 
 
 def draft(directory):

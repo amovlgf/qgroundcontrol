@@ -5,7 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ai_release import PACKAGES, digest, require_draft, verify_packages
+from ai_release import PACKAGES, digest, require_draft, verify_packages, verify_test_report
+from publish_ai_release import ASSETS, REQUIRED_CHECKS, validate_acceptance
 
 
 class ReleaseValidationTest(unittest.TestCase):
@@ -61,6 +62,40 @@ class ReleaseValidationTest(unittest.TestCase):
         require_draft({"draft": True})
         with self.assertRaises(ValueError):
             require_draft({"draft": False})
+
+    def test_test_report_cannot_be_empty_partial_or_skipped(self):
+        path = self.directory / "ai-tests.xml"
+        good = '<testcase name="AIDiagnosticControllerTest" status="run"/><testcase name="CodexAppServerClientTest" status="run"/>'
+        path.write_text('<testsuite>' + good + '</testsuite>')
+        self.assertEqual(len(verify_test_report(path)), 2)
+        for body in ('', '<testcase name="AIDiagnosticControllerTest"/>',
+                     good.replace('status="run"/>', 'status="notrun"/>', 1),
+                     good.replace('status="run"/>', 'status="run"><failure/></testcase>', 1),
+                     good.replace('status="run"/>', 'status="run"><skipped/></testcase>', 1)):
+            with self.subTest(body=body):
+                path.write_text('<testsuite>' + body + '</testsuite>')
+                with self.assertRaises(ValueError):
+                    verify_test_report(path)
+
+    def test_acceptance_requires_complete_package_and_sitl_checks(self):
+        acceptance = {
+            "tag": self.expected["tag"], "commit": self.expected["commit"],
+            "sha256": {name: "b" * 64 for name in ASSETS},
+            "checks": {name: {"result": "passed", "details": "Recorded evidence"}
+                       for name in REQUIRED_CHECKS | {"api_path", "chatgpt_path"}},
+        }
+        validate_acceptance(acceptance)
+        for name in REQUIRED_CHECKS:
+            with self.subTest(check=name):
+                incomplete = copy.deepcopy(acceptance)
+                incomplete["checks"][name]["result"] = "limited"
+                with self.assertRaises(ValueError):
+                    validate_acceptance(incomplete)
+        acceptance["checks"]["chatgpt_path"] = {"result": "limited", "details": "Live account unavailable; protocol tests passed"}
+        validate_acceptance(acceptance)
+        acceptance["sha256"].pop("BUILD_INFO.json")
+        with self.assertRaises(ValueError):
+            validate_acceptance(acceptance)
 
 
 if __name__ == "__main__":

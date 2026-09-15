@@ -122,7 +122,18 @@ jobs:
       - name: Run AI diagnostic tests
         if: matrix.BuildType == 'Debug' && inputs.ai_release
         working-directory: ${{ runner.temp }}/shadow_build_dir
-        run: xvfb-run -a ctest --output-on-failure -R '^(AIDiagnosticControllerTest|CodexAppServerClientTest)$'
+        run: |
+          xvfb-run -a ctest --test-dir test --no-tests=error --verbose --output-on-failure \
+            --output-junit "${{ runner.temp }}/shadow_build_dir/ai-tests.xml" \
+            -R '^(AIDiagnosticControllerTest|CodexAppServerClientTest)$'
+
+      - name: Save AI test results
+        if: always() && matrix.BuildType == 'Debug' && inputs.ai_release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-test-results
+          if-no-files-found: error
+          path: ${{ runner.temp }}/shadow_build_dir/ai-tests.xml
 
       - name: Record AI build provenance
         if: matrix.BuildType == 'Release' && inputs.ai_release

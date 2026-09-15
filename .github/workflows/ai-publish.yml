@@ -1,0 +1,35 @@
+name: Publish accepted AI prerelease
+
+on:
+  push:
+    branches:
+      - 'codex/ai-publish-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-release-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test release validation
+        run: python3 -m unittest discover -s tools/ai_release -p 'test_*.py' -v
+      - name: Verify accepted draft, publish and re-download public assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/ai_release/publish_ai_release.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-download-verification
+          if-no-files-found: error
+          path: PUBLIC_DOWNLOAD_VERIFICATION.json

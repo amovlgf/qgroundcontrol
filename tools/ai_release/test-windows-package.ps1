@@ -12,6 +12,14 @@ if (-not $install.WaitForExit(180000)) { $install.Kill(); throw 'Installer timed
 if ($install.ExitCode -ne 0) { throw "Installer exited with $($install.ExitCode)" }
 $binary = Join-Path $installDir 'bin/QGroundControl.exe'
 if (-not (Test-Path $binary)) { throw 'Installed executable is missing' }
+if ($env:GITHUB_REF_TYPE -eq 'tag') {
+    $embeddedStrings = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($binary))
+    if (-not $embeddedStrings.Contains($env:GITHUB_REF_NAME)) {
+        throw 'Installed executable does not contain the expected AI version tag'
+    }
+    $embeddedStrings = $null
+    Write-Output "Installed version marker verified: $env:GITHUB_REF_NAME"
+}
 # Remove developer Qt paths: the installed package must supply its own runtime.
 $env:QT_PLUGIN_PATH = ''
 $env:QML2_IMPORT_PATH = ''
