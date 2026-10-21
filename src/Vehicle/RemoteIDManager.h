@@ -58,6 +58,7 @@ signals:
 private slots:
     void _odidTimeout();
     void _sendMessages();
+    void _sendSystem();
 
 private:
     void _handleArmStatus(mavlink_message_t& message);
@@ -70,7 +71,6 @@ private:
     void        _sendOperatorID ();
 
     // System
-    void        _sendSystem();
     uint32_t    _timestamp2019();
 
     // Basic ID
@@ -104,4 +104,5 @@ private:
     // Timers
     QTimer _odidTimeoutTimer;
     QTimer _sendMessagesTimer;
+    QTimer _sendSystemTimer;
 };

@@ -1,5 +1,6 @@
 #include "RemoteIDManager.h"
 
+#include <limits>
 #include <utility>
 
 #include "GPSManager.h"
@@ -45,6 +46,8 @@ RemoteIDManager::RemoteIDManager(Vehicle* vehicle)
     connect(&_odidTimeoutTimer, &QTimer::timeout, this, &RemoteIDManager::_odidTimeout);
 
     // Timer to send messages at a constant rate
+    _sendSystemTimer.setInterval(200);
+    connect(&_sendSystemTimer, &QTimer::timeout, this, &RemoteIDManager::_sendSystem);
     _sendMessagesTimer.setInterval(SENDING_RATE_MSEC);
     connect(&_sendMessagesTimer, &QTimer::timeout, this, &RemoteIDManager::_sendMessages);
 
@@ -68,6 +71,7 @@ void RemoteIDManager::mavlinkMessageReceived(mavlink_message_t& message )
 void RemoteIDManager::_odidTimeout()
 {
     _ridDeviceCommsGood = false;
+    _sendSystemTimer.stop();
     _sendMessagesTimer.stop(); // We stop sending messages if the communication with the RID device is down
     emit ridDeviceCommsGoodChanged();
     qCDebug(RemoteIDManagerLog) << "We stopped receiving heartbeat from RID device.";
@@ -103,6 +107,7 @@ void RemoteIDManager::_handleArmStatus(mavlink_message_t& message)
 
     if (!_ridDeviceCommsGood) {
         _ridDeviceCommsGood = true;
+        _sendSystemTimer.start();
         _sendMessagesTimer.start();     // Start sending our messages
         emit ridDeviceCommsGoodChanged();
         qCDebug(RemoteIDManagerLog) << "Receiving ODID_ARM_STATUS from RID device";
@@ -161,9 +166,6 @@ void RemoteIDManager::_handleArmStatus(mavlink_message_t& message)
 // Function that sends messages periodically
 void RemoteIDManager::_sendMessages()
 {
-    // We always try to send System
-    _sendSystem();
-
     // only send it if the information is correct and the tickbox in settings is set
     if (_settings->basicIDValid() && _settings->sendBasicID()->rawValue().toBool()) {
         _sendBasicID();
@@ -280,7 +282,8 @@ void RemoteIDManager::_updateGcsPositionStatus(bool usable, const QString& error
 
 void RemoteIDManager::_sendSystem()
 {
-    QGeoCoordinate gcsPosition(0, 0, 0);
+    QGeoCoordinate gcsPosition;
+    uint32_t sourceTimestamp2019 = 0;
     const uint32_t locationType = _settings->locationType()->rawValue().toUInt();
     // Location types:
     // 0 -> TAKEOFF (not supported yet)
@@ -294,6 +297,7 @@ void RemoteIDManager::_sendSystem()
         // For FIXED location, we first check that the values are valid. Then we populate our position
         if (lat >= -90.0 && lat <= 90.0 && lon >= -180.0 && lon <= 180.0) {
             gcsPosition = QGeoCoordinate(lat, lon, alt);
+            sourceTimestamp2019 = _timestamp2019();
             _updateGcsPositionStatus(true);
         } else {
             _updateGcsPositionStatus(false, "The provided coordinates for FIXED position are invalid.");
@@ -301,15 +305,21 @@ void RemoteIDManager::_sendSystem()
     } else {
         PositionManager* positionManager = GPSManager::instance()->positionManager();
         const auto observation = positionManager->acceptedObservation(GPSObservation::PositionUse::RemoteID,
-                                                                      GPSSourceHealth::FRESHNESS_TIMEOUT);
+                                                                      std::chrono::milliseconds(1000));
         if (observation) {
             gcsPosition = observation->position.coordinate();
-            // An altitude of another or an unknown datum is still the best available operator altitude.
+            const qint64 sourceUtc = observation->position.timestamp().toSecsSinceEpoch();
+            const qint64 sourceDelta = sourceUtc - 1546300800;
+            if (sourceDelta > 0 && sourceDelta <= std::numeric_limits<uint32_t>::max()) {
+                sourceTimestamp2019 = static_cast<uint32_t>(sourceDelta);
+            }
             const bool notGeodetic =
                 observation->altitudeDatum != GPSAltitudeDatum::Ellipsoid && qIsFinite(gcsPosition.altitude());
+            if (notGeodetic) {
+                gcsPosition.setAltitude(qQNaN());
+            }
             if (notGeodetic && !std::exchange(_gcsAltitudeNotGeodeticReported, true)) {
-                qCWarning(RemoteIDManagerLog)
-                    << "GCS altitude is not a WGS84 ellipsoid height; sending it as the operator's geodetic altitude";
+                qCWarning(RemoteIDManagerLog) << "GCS altitude datum is not WGS84 ellipsoid; sending unknown altitude";
             } else if (!notGeodetic) {
                 _gcsAltitudeNotGeodeticReported = false;
             }
@@ -345,14 +355,15 @@ void RemoteIDManager::_sendSystem()
 
         mavlink_msg_open_drone_id_system_pack_chan(
             MAVLinkProtocol::instance()->getSystemId(), MAVLinkProtocol::getComponentId(), sharedLink->mavlinkChannel(),
-            &msg, _targetSystem, _targetComponent, _id_or_mac_unknown, _settings->locationType()->rawValue().toUInt(),
+            &msg, _targetSystem, _targetComponent, _id_or_mac_unknown,
+            locationType == LocationTypes::FIXED ? LocationTypes::FIXED : LocationTypes::LiveGNSS,
             _settings->classificationType()->rawValue().toUInt(),
             _gcsPositionUsable ? (gcsPosition.latitude() * 1.0e7) : MAVLINK_UNKNOWN_LAT,
             _gcsPositionUsable ? (gcsPosition.longitude() * 1.0e7) : MAVLINK_UNKNOWN_LON, AREA_COUNT, AREA_RADIUS,
             MAVLINK_UNKNOWN_METERS, MAVLINK_UNKNOWN_METERS, _settings->categoryEU()->rawValue().toUInt(),
             _settings->classEU()->rawValue().toUInt(),
             _gcsPositionUsable && qIsFinite(gcsPosition.altitude()) ? gcsPosition.altitude() : MAVLINK_UNKNOWN_METERS,
-            _timestamp2019());
+            _gcsPositionUsable ? sourceTimestamp2019 : 0);
         _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
     }
 }
@@ -360,9 +371,8 @@ void RemoteIDManager::_sendSystem()
 // Returns seconds elapsed since 00:00:00 1/1/2019
 uint32_t RemoteIDManager::_timestamp2019()
 {
-    uint32_t secsSinceEpoch2019 = 1546300800; // Secs elapsed since epoch to 1-1-2019
-
-    return ((QDateTime::currentDateTime().currentSecsSinceEpoch()) - secsSinceEpoch2019);
+    const qint64 delta = QDateTime::currentSecsSinceEpoch() - 1546300800;
+    return delta > 0 && delta <= std::numeric_limits<uint32_t>::max() ? static_cast<uint32_t>(delta) : 0;
 }
 
 void RemoteIDManager::_sendBasicID()

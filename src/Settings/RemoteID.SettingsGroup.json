@@ -181,12 +181,12 @@
         {
             "name": "altitudeFixed",
             "shortDesc": "Fixed altitude for operator location when not using live GNSS.",
-            "longDesc": "Fixed Altitude to send on SYSTEM message",
+            "longDesc": "Fixed WGS84 ellipsoid altitude in meters to send on SYSTEM message",
             "type": "double",
             "units": "vertical m",
             "decimalPlaces": 1,
             "default": 0,
-            "label": "Altitude Fixed",
+            "label": "Fixed Ellipsoid Altitude",
             "keywords": "altitude,fixed position"
         },
         {
