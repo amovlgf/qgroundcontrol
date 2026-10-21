@@ -153,3 +153,74 @@ void CodexAppServerClientTest::_accountLoginAndModelSelection_test()
     QCOMPARE(CodexAppServerClient::preferredModelIndex(models, QStringLiteral("first")), 0);
     QCOMPARE(CodexAppServerClient::preferredModelIndex(models, QStringLiteral("missing")), 1);
 }
+
+void CodexAppServerClientTest::_proxyEnvironment_test()
+{
+    QProcessEnvironment environment;
+    environment.insert(QStringLiteral("PATH"), QStringLiteral("keep-this-path"));
+    environment.insert(QStringLiteral("HTTPS_PROXY"), QStringLiteral("http://old-proxy:8080"));
+    environment.insert(QStringLiteral("https_proxy"), QStringLiteral("http://another-proxy:8081"));
+    environment.insert(QStringLiteral("NO_PROXY"), QStringLiteral("*"));
+    environment.insert(QStringLiteral("no_proxy"), QStringLiteral("auth.openai.com"));
+    const QProcessEnvironment original = environment;
+    QString error;
+
+    QVERIFY(CodexAppServerClient::_applyProxyEnvironment(environment, QStringLiteral("  "), &error));
+    QCOMPARE(environment, original);
+
+    for (const QString &url : {QStringLiteral("http://127.0.0.1:7890"), QStringLiteral("https://proxy.example:8443"),
+                              QStringLiteral("socks5://[::1]:1080"), QStringLiteral("socks5h://user:p%40ss@proxy.example:1080")}) {
+        QVERIFY(CodexAppServerClient::_applyProxyEnvironment(environment, QStringLiteral("  %1  ").arg(url), &error));
+        QVERIFY(error.isEmpty());
+        for (const QString &name : {QStringLiteral("HTTP_PROXY"), QStringLiteral("HTTPS_PROXY"), QStringLiteral("ALL_PROXY")}) {
+            QCOMPARE(environment.value(name), url);
+            QCOMPARE(environment.value(name.toLower()), url);
+        }
+        QCOMPARE(environment.value(QStringLiteral("PATH")), original.value(QStringLiteral("PATH")));
+        QCOMPARE(environment.value(QStringLiteral("NO_PROXY")), QStringLiteral("localhost,127.0.0.1,::1"));
+        QCOMPARE(environment.value(QStringLiteral("no_proxy")), environment.value(QStringLiteral("NO_PROXY")));
+    }
+}
+
+void CodexAppServerClientTest::_invalidProxyUrl_data()
+{
+    QTest::addColumn<QString>("url");
+    QTest::newRow("missing-scheme") << QStringLiteral("127.0.0.1:7890");
+    QTest::newRow("unsupported-scheme") << QStringLiteral("file:///tmp/proxy");
+    QTest::newRow("missing-host") << QStringLiteral("http://:7890");
+    QTest::newRow("invalid-port") << QStringLiteral("http://proxy:70000");
+    QTest::newRow("zero-port") << QStringLiteral("http://proxy:0");
+    QTest::newRow("invalid-host") << QStringLiteral("http://bad host:7890");
+    QTest::newRow("path") << QStringLiteral("http://proxy:7890/api");
+    QTest::newRow("query") << QStringLiteral("http://proxy:7890?token=secret");
+    QTest::newRow("fragment") << QStringLiteral("http://proxy:7890#fragment");
+    QTest::newRow("credentials-redacted") << QStringLiteral("ftp://private-user:private-password@proxy:7890");
+}
+
+void CodexAppServerClientTest::_invalidProxyUrl()
+{
+    QFETCH(QString, url);
+    QProcessEnvironment environment;
+    environment.insert(QStringLiteral("HTTPS_PROXY"), QStringLiteral("http://existing:8080"));
+    const QProcessEnvironment original = environment;
+    QString error;
+    QVERIFY(!CodexAppServerClient::_applyProxyEnvironment(environment, url, &error));
+    QCOMPARE(environment, original);
+    QVERIFY(!error.isEmpty());
+    QVERIFY(!error.contains(url));
+    QVERIFY(!error.contains(QStringLiteral("private-password")));
+    QVERIFY(!error.contains(QStringLiteral("private-user")));
+}
+
+void CodexAppServerClientTest::_deviceCodeForbiddenError_test()
+{
+    const QString message = CodexAppServerClient::deviceCodeLoginErrorText(
+        QStringLiteral("failed to request device code: device code request failed with status 403 Forbidden"));
+    QVERIFY(message.contains(QStringLiteral("403")));
+    QVERIFY(message.contains(QStringLiteral("proxy")));
+    QVERIFY(message.contains(QStringLiteral("restart")));
+    QCOMPARE(CodexAppServerClient::deviceCodeLoginErrorText(QStringLiteral("connection timed out")),
+             QStringLiteral("Authorization failed: connection timed out"));
+    QCOMPARE(CodexAppServerClient::deviceCodeLoginErrorText(QStringLiteral("account access denied: 403 Forbidden")),
+             QStringLiteral("Authorization failed: account access denied: 403 Forbidden"));
+}

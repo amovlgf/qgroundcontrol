@@ -150,7 +150,7 @@ private:
 
     bool _chatGptSelected() const;
     void _askChatGptWithContext(const QString &question, const QString &consoleText);
-    void _ensureCodexClientStarted();
+    bool _ensureCodexClientStarted();
     void _readChatGptAccount();
     void _loadChatGptModels();
     void _handleCodexNotification(const QString &method, const QJsonObject &params);

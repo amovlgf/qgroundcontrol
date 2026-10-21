@@ -17,6 +17,7 @@
 #include <QtCore/QProcess>
 #include <QtCore/QProcessEnvironment>
 #include <QtCore/QStandardPaths>
+#include <QtCore/QUrl>
 
 #include <utility>
 
@@ -203,7 +204,48 @@ bool CodexAppServerClient::_prepareCodexHome(QString *codexHome) const
     return true;
 }
 
-bool CodexAppServerClient::start()
+bool CodexAppServerClient::_applyProxyEnvironment(QProcessEnvironment &environment, const QString &proxyUrl, QString *errorText)
+{
+    const QString value = proxyUrl.trimmed();
+    if (value.isEmpty()) {
+        return true;
+    }
+
+    const QUrl url(value, QUrl::StrictMode);
+    const QStringList schemes{QStringLiteral("http"), QStringLiteral("https"), QStringLiteral("socks5"), QStringLiteral("socks5h")};
+    if (!url.isValid() || !schemes.contains(url.scheme()) || url.host().isEmpty() || url.port() == 0
+        || (!url.path().isEmpty() && url.path() != QStringLiteral("/")) || url.hasQuery() || url.hasFragment()) {
+        if (errorText) {
+            // Do not include the supplied URL: it may contain proxy credentials.
+            *errorText = tr("Invalid ChatGPT proxy URL. Use http://host:port, https://host:port, socks5://host:port or socks5h://host:port without a path, query or fragment.");
+        }
+        return false;
+    }
+
+    // Codex is a separate process and cannot use QNetworkAccessManager's proxy.
+    // Set both cases so inherited variables cannot override the saved setting.
+    for (const QString &name : {QStringLiteral("HTTP_PROXY"), QStringLiteral("HTTPS_PROXY"), QStringLiteral("ALL_PROXY")}) {
+        environment.insert(name, url.toString(QUrl::FullyEncoded));
+        environment.insert(name.toLower(), url.toString(QUrl::FullyEncoded));
+    }
+    // An inherited NO_PROXY=* must not silently bypass an explicit proxy.
+    // Keep loopback traffic local, including browser authentication callbacks.
+    const QString noProxy = QStringLiteral("localhost,127.0.0.1,::1");
+    environment.insert(QStringLiteral("NO_PROXY"), noProxy);
+    environment.insert(QStringLiteral("no_proxy"), noProxy);
+    return true;
+}
+
+QString CodexAppServerClient::deviceCodeLoginErrorText(const QString &message)
+{
+    if (message.contains(QStringLiteral("device code"), Qt::CaseInsensitive)
+        && message.contains(QStringLiteral("403"))) {
+        return tr("ChatGPT rejected the device-code request (HTTP 403). Check the ChatGPT proxy URL in AI Assistant settings and restart QGroundControl after changing it. Browser connectivity alone does not confirm that the assistant can connect. This error does not establish whether device-code authorization is enabled.");
+    }
+    return tr("Authorization failed: %1").arg(message);
+}
+
+bool CodexAppServerClient::start(const QString &proxyUrl)
 {
     if (_testTransport || (_process && _process->state() != QProcess::NotRunning)) {
         return true;
@@ -225,6 +267,12 @@ bool CodexAppServerClient::start()
     }
 
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    QString proxyError;
+    if (!_applyProxyEnvironment(environment, proxyUrl, &proxyError)) {
+        _setState(State::Error);
+        emit processError(proxyError);
+        return false;
+    }
     environment.insert(QStringLiteral("CODEX_HOME"), codexHome);
     _process->setProcessEnvironment(environment);
     _process->setProgram(program);

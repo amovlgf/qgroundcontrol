@@ -468,7 +468,10 @@ void AIDiagnosticController::startChatGptLogin()
     }
 
     _chatGptLoginRequested = true;
-    _ensureCodexClientStarted();
+    if (!_ensureCodexClientStarted()) {
+        _chatGptLoginRequested = false;
+        return;
+    }
     if (!_codexClient.isInitialized()) {
         _setChatGptStatus(tr("Starting authentication service"));
         return;
@@ -483,7 +486,7 @@ void AIDiagnosticController::startChatGptLogin()
     }, [this](const QJsonValue &result, const QJsonObject &error) {
         if (!error.isEmpty()) {
             _setChatGptLoginInProgress(false);
-            _setChatGptStatus(tr("Authorization failed: %1").arg(error.value(QStringLiteral("message")).toString()));
+            _setChatGptStatus(CodexAppServerClient::deviceCodeLoginErrorText(error.value(QStringLiteral("message")).toString()));
             _codexClient.setState(CodexAppServerClient::State::SignedOut);
             return;
         }
@@ -616,15 +619,18 @@ void AIDiagnosticController::selectChatGptModel(int index)
     emit configuredChanged();
 }
 
-void AIDiagnosticController::_ensureCodexClientStarted()
+bool AIDiagnosticController::_ensureCodexClientStarted()
 {
     if (_codexClient.isInitialized()) {
-        return;
+        return true;
     }
-    if (!_codexClient.start()) {
-        return;
+    AIAssistantSettings *settings = SettingsManager::instance()->aiAssistantSettings();
+    const QString proxyUrl = settings ? settings->chatGptProxyUrl()->rawValueString() : QString();
+    if (!_codexClient.start(proxyUrl)) {
+        return false;
     }
     _setChatGptStatus(tr("Starting authentication service"));
+    return true;
 }
 
 void AIDiagnosticController::_readChatGptAccount()

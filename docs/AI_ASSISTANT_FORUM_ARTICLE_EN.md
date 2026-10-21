@@ -1,6 +1,8 @@
 # Building a Safety-Bounded AI Flight Diagnostic Assistant in QGroundControl
 
-> **Prototype history:** This article documents the original MAVLink Console prototype. The implementation has since moved to a dedicated Analyze page. See [the Analyze-view update](AI_ASSISTANT_FORUM_UPDATE_EN.md).
+> **Update — the implementation has moved to Analyze Tools:** This post is retained as a record of the original MAVLink Console prototype. The current experimental implementation is a dedicated **AI Flight Diagnostics (PX4)** Analyze page with an explicit firmware-provider boundary and manually attached Console evidence. See [the detailed Analyze-view update](https://discuss.px4.io/t/building-a-safety-bounded-ai-flight-diagnostic-assistant-in-qgroundcontrol/49228/5).
+
+> The project remains **experimental, unofficial, and PX4-only**. The existing `v5.0.8.1-ai.1` package contains the older Console prototype; no prebuilt package containing the Analyze-view implementation is currently available.
 
 > Technical sharing, experimental feature preview, and request for community feedback
 

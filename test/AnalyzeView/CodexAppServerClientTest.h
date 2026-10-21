@@ -23,4 +23,8 @@ private slots:
     void _requestTimeout_test();
     void _approvalRequestsAreDeclined_test();
     void _accountLoginAndModelSelection_test();
+    void _proxyEnvironment_test();
+    void _invalidProxyUrl_data();
+    void _invalidProxyUrl();
+    void _deviceCodeForbiddenError_test();
 };

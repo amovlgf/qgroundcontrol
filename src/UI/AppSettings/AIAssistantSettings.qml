@@ -77,6 +77,20 @@ SettingsPage {
         headingDescription: qsTr("ChatGPT authentication, account state, and models are managed by the local Codex App Server.")
         visible:            _isChatGpt
 
+        LabelledFactTextField {
+            Layout.fillWidth:           true
+            textFieldPreferredWidth:    _fieldWidth
+            label:                      qsTr("ChatGPT proxy URL")
+            fact:                       _aiAssistantSettings.chatGptProxyUrl
+            textField.placeholderText:  qsTr("Optional, e.g. http://127.0.0.1:7890")
+        }
+
+        QGCLabel {
+            Layout.fillWidth: true
+            wrapMode:         Text.WordWrap
+            text:             qsTr("Saved for ChatGPT sign-in and requests. Leave empty to use proxy environment variables. Restart QGroundControl after changing this setting.")
+        }
+
         QGCLabel {
             Layout.fillWidth: true
             wrapMode:         Text.WordWrap
@@ -89,9 +103,9 @@ SettingsPage {
             wrapMode:         Text.WordWrap
             text:             aiAuthController.chatGptLoginInProgress
                                   ? qsTr("Login steps:\n1. Click Open login page.\n2. If the browser says device code login is disabled, enable Codex device code authorization in ChatGPT Settings > Security.\n3. Click Continue in the browser and enter the code shown below.")
-                                  : qsTr("Before signing in, enable Codex device code authorization in ChatGPT Settings > Security, then click Sign in with ChatGPT.")
+                                  : qsTr("Click Sign in with ChatGPT to get a login code. If the browser reports that device-code login is disabled, enable it in ChatGPT Settings > Security (or ask your workspace administrator).")
             visible:          !aiAuthController.chatGptSignedIn
-            color:             qgcPal.warningText
+            color:            qgcPal.text
         }
 
         QGCLabel {

@@ -34,6 +34,13 @@
     "default": ""
 },
 {
+    "name": "chatGptProxyUrl",
+    "shortDesc": "ChatGPT proxy URL",
+    "longDesc": "Proxy used for ChatGPT sign-in and requests. Supports http, https, socks5 and socks5h URLs. Leave empty to inherit proxy environment variables. Restart QGroundControl after changing this setting.",
+    "type": "string",
+    "default": ""
+},
+{
     "name": "apiKey",
     "shortDesc": "API key",
     "longDesc": "Personal bearer token sent to the configured endpoint. Leave empty for local endpoints that do not require authentication.",

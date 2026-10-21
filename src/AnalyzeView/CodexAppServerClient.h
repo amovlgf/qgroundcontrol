@@ -15,6 +15,7 @@
 #include <QtCore/QHash>
 #include <QtCore/QObject>
 #include <QtCore/QProcess>
+#include <QtCore/QProcessEnvironment>
 #include <QtCore/QStringList>
 #include <QtCore/QTimer>
 #include <QtCore/QVariant>
@@ -49,7 +50,7 @@ public:
     bool isInitialized() const { return _initialized; }
     bool isRunning() const;
 
-    bool start();
+    bool start(const QString &proxyUrl = QString());
     void stop();
     void setState(State state);
 
@@ -57,6 +58,7 @@ public:
     static bool parseChatGptAccountResponse(const QJsonObject &response, QString *email, QString *planType);
     static QVariantList parseModelListResponse(const QJsonObject &response);
     static int preferredModelIndex(const QVariantList &models, const QString &savedModel);
+    static QString deviceCodeLoginErrorText(const QString &message);
 
     qint64 request(const QString &method, const QJsonObject &params, ResponseCallback callback, int timeoutMsec = 30000);
     bool notify(const QString &method, const QJsonObject &params = QJsonObject());
@@ -84,6 +86,10 @@ private slots:
     void _checkRequestTimeouts();
 
 private:
+    friend class CodexAppServerClientTest;
+
+    static bool _applyProxyEnvironment(QProcessEnvironment &environment, const QString &proxyUrl, QString *errorText);
+
     struct PendingRequest {
         QString method;
         qint64 deadlineMsec = 0;
