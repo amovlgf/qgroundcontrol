@@ -55,6 +55,10 @@ QList<VehicleReadinessTest::EvaluateCase> VehicleReadinessTest::_evaluateCases()
         inputs.checklistBlocksArming = true;
         return inputs;
     };
+    const auto uomBlocking = [](Inputs inputs) {
+        inputs.uomBlocksArming = true;
+        return inputs;
+    };
     const auto syncing = [](Inputs inputs) {
         inputs.initialConnectComplete = false;
         return inputs;
@@ -94,6 +98,9 @@ QList<VehicleReadinessTest::EvaluateCase> VehicleReadinessTest::_evaluateCases()
     supportedReportWaitExpired.healthReportWaitExpired = true;
 
     return {
+        {"uomBlocksPreflight", uomBlocking(libEvents(all, all)), result(false, false, false, Status::NotReady)},
+        {"uomDoesNotBlockArmedActions", armed(uomBlocking(libEvents(all, all))),
+         result(true, true, true, Status::Ready)},
         {"libEventsAllReady", libEvents(all, all), result(true, true, true, Status::Ready)},
         {"libEventsTakeoffBlocked", libEvents(manual | mission, all), result(true, false, true, Status::Ready)},
         {"libEventsCurrentModeBlocked", libEvents(takeoff | mission, all), result(false, true, true, Status::NotReady)},

@@ -56,9 +56,28 @@ CPMAddPackage(
 
 qgc_require_cpm_added(mavlink)
 
-add_dependencies(${CMAKE_PROJECT_NAME} mavlink)
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${mavlink_BINARY_DIR}/include/mavlink
-                                                         ${mavlink_BINARY_DIR}/include/mavlink/${QGC_MAVLINK_DIALECT}
+set(QGC_AMOV_PROTOCOL_DIR "${CMAKE_SOURCE_DIR}/protocol/amov_rid_uom")
+set(QGC_AMOV_MAVLINK_DIR "${CMAKE_BINARY_DIR}/amov-mavlink")
+set(QGC_AMOV_XML_DIR "${CMAKE_BINARY_DIR}/amov-mavlink-xml")
+file(GLOB QGC_AMOV_UPSTREAM_XML CONFIGURE_DEPENDS "${mavlink_SOURCE_DIR}/message_definitions/v1.0/*.xml")
+add_custom_command(
+    OUTPUT "${QGC_AMOV_MAVLINK_DIR}/${QGC_MAVLINK_DIALECT}/mavlink.h"
+    COMMAND
+        "${CMAKE_COMMAND}" -E env "PYTHONHASHSEED=0" "${Python3_EXECUTABLE}" "${QGC_AMOV_PROTOCOL_DIR}/generate.py"
+        --definitions "${mavlink_SOURCE_DIR}/message_definitions/v1.0" --dialect "${QGC_MAVLINK_DIALECT}" --output
+        "${QGC_AMOV_MAVLINK_DIR}" --work-dir "${QGC_AMOV_XML_DIR}" --pymavlink-root "${mavlink_SOURCE_DIR}"
+    DEPENDS mavlink ${QGC_AMOV_UPSTREAM_XML} "${QGC_AMOV_PROTOCOL_DIR}/generate.py" "${QGC_AMOV_PROTOCOL_DIR}/amov.xml"
+    COMMENT "Generating MAVLink with the AMOV RID/UOM extension"
+    VERBATIM
+)
+add_custom_target(
+    qgc_amov_mavlink
+    DEPENDS "${QGC_AMOV_MAVLINK_DIR}/${QGC_MAVLINK_DIALECT}/mavlink.h"
+    COMMENT "Checking generated AMOV RID/UOM MAVLink headers"
+)
+add_dependencies(${CMAKE_PROJECT_NAME} qgc_amov_mavlink)
+target_include_directories(${CMAKE_PROJECT_NAME} BEFORE PRIVATE ${QGC_AMOV_MAVLINK_DIR}
+                                                                ${QGC_AMOV_MAVLINK_DIR}/${QGC_MAVLINK_DIALECT}
 )
 
 # Generate lightweight MAVLinkEnums.h (enum typedefs only, no message pack/unpack code)
@@ -69,9 +88,10 @@ set(MAVLINK_ENUMS_QML_CC "${CMAKE_BINARY_DIR}/MAVLinkEnumsQml.cc")
 set(MAVLINK_ENUMS_GENERATOR "${CMAKE_SOURCE_DIR}/tools/generators/mavlink_enums.py")
 add_custom_command(
     OUTPUT "${MAVLINK_ENUMS_H}" "${MAVLINK_ENUMS_QML_H}" "${MAVLINK_ENUMS_QML_CC}"
-    COMMAND Python3::Interpreter "${MAVLINK_ENUMS_GENERATOR}" "${mavlink_BINARY_DIR}/include/mavlink"
-            "${MAVLINK_ENUMS_H}" "${MAVLINK_ENUMS_QML_H}" "${MAVLINK_ENUMS_QML_CC}"
-    DEPENDS mavlink "${MAVLINK_ENUMS_GENERATOR}" "${CMAKE_SOURCE_DIR}/tools/common/io.py"
+    COMMAND Python3::Interpreter "${MAVLINK_ENUMS_GENERATOR}" "${QGC_AMOV_MAVLINK_DIR}" "${MAVLINK_ENUMS_H}"
+            "${MAVLINK_ENUMS_QML_H}" "${MAVLINK_ENUMS_QML_CC}"
+    DEPENDS qgc_amov_mavlink "${QGC_AMOV_MAVLINK_DIR}/${QGC_MAVLINK_DIALECT}/mavlink.h" "${MAVLINK_ENUMS_GENERATOR}"
+            "${CMAKE_SOURCE_DIR}/tools/common/io.py"
     COMMENT "Generating MAVLinkEnums.h + MAVLinkEnumsQml.{h,cc}"
     VERBATIM
 )
@@ -96,12 +116,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE "${MAVLINK_ENUMS_QML_H}" "${MAVLINK
 # Generate MAVLinkInstanceFields.h (message ID → instance field name mapping)
 set(MAVLINK_INSTANCE_FIELDS_H "${CMAKE_BINARY_DIR}/MAVLinkInstanceFields.h")
 set(MAVLINK_INSTANCE_FIELDS_GENERATOR "${CMAKE_SOURCE_DIR}/tools/generators/mavlink_instance_fields.py")
-set(MAVLINK_XML_DIR "${mavlink_SOURCE_DIR}/message_definitions/v1.0")
+set(MAVLINK_XML_DIR "${QGC_AMOV_XML_DIR}")
 add_custom_command(
     OUTPUT "${MAVLINK_INSTANCE_FIELDS_H}"
     COMMAND Python3::Interpreter "${MAVLINK_INSTANCE_FIELDS_GENERATOR}" "${MAVLINK_XML_DIR}" "${QGC_MAVLINK_DIALECT}"
             "${MAVLINK_INSTANCE_FIELDS_H}"
-    DEPENDS mavlink "${MAVLINK_INSTANCE_FIELDS_GENERATOR}" "${CMAKE_SOURCE_DIR}/tools/common/io.py"
+    DEPENDS qgc_amov_mavlink "${QGC_AMOV_MAVLINK_DIR}/${QGC_MAVLINK_DIALECT}/mavlink.h"
+            "${MAVLINK_INSTANCE_FIELDS_GENERATOR}" "${CMAKE_SOURCE_DIR}/tools/common/io.py"
             "${CMAKE_SOURCE_DIR}/tools/common/xml.py"
     COMMENT "Generating MAVLinkInstanceFields.h"
     VERBATIM

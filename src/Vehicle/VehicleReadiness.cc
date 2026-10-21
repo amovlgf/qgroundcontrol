@@ -8,6 +8,7 @@
 #include "QGCLoggingCategory.h"
 #include "SettingsManager.h"
 #include "Vehicle.h"
+#include "VehicleUomManager.h"
 
 QGC_LOGGING_CATEGORY(VehicleReadinessLog, "Vehicle.VehicleReadiness")
 
@@ -15,6 +16,9 @@ VehicleReadiness::VehicleReadiness(Vehicle* vehicle)
     : QObject(vehicle)
     , _vehicle(vehicle)
 {
+    if (_vehicle && _vehicle->uomManager()) {
+        connect(_vehicle->uomManager(), &VehicleUomManager::changed, this, &VehicleReadiness::update);
+    }
     connect(_vehicle, &Vehicle::armedChanged, this, &VehicleReadiness::update);
     connect(_vehicle, &Vehicle::checkListStateChanged, this, &VehicleReadiness::update);
     connect(_vehicle, &Vehicle::initialConnectComplete, this, [this]() {
@@ -122,7 +126,7 @@ void VehicleReadiness::_applyLockouts(Result& result, const Inputs& inputs)
     }
 
     // The checklist is pre-flight, so it only blocks a disarmed vehicle
-    if (!inputs.armed && inputs.checklistBlocksArming) {
+    if (!inputs.armed && (inputs.checklistBlocksArming || inputs.uomBlocksArming)) {
         result.canArm = false;
         result.canTakeoff = false;
         result.canStartMission = false;
@@ -135,6 +139,8 @@ VehicleReadiness::Inputs VehicleReadiness::_gatherInputs() const
     Inputs inputs;
 
     inputs.armed = _vehicle->armed();
+    const auto* uom = _vehicle->uomManager();
+    inputs.uomBlocksArming = uom && uom->required() && !uom->preflightReady();
     inputs.initialConnectComplete = _vehicle->isInitialConnectComplete();
     inputs.healthReportWaitExpired = _healthReportWaitExpired;
 

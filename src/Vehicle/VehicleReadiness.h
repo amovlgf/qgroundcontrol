@@ -108,6 +108,7 @@ private:
     {
         bool armed = false;
         bool checklistBlocksArming = false;
+        bool uomBlocksArming = false;
         bool initialConnectComplete = false;
         bool healthReportWaitExpired = false;         ///< Stop waiting for a health report which has not arrived
 

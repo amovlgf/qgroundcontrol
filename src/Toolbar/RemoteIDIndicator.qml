@@ -13,7 +13,7 @@ Item {
     anchors.top:    parent.top
     anchors.bottom: parent.bottom
 
-    property bool   showIndicator:      remoteIDManager.available
+    property bool   showIndicator:      (remoteIDManager && remoteIDManager.available) || (activeVehicle && activeVehicle.uomManager && activeVehicle.uomManager.supported)
 
     property var    activeVehicle:      QGroundControl.multiVehicleManager.activeVehicle
     property var    remoteIDManager:    activeVehicle ? activeVehicle.remoteIDManager : null
@@ -62,6 +62,9 @@ Item {
     function getRemoteIDState() {
         if (!activeVehicle) {
             return RemoteIDIndicator.RIDState.UNAVAILABLE
+        }
+        if (activeVehicle.uomManager && activeVehicle.uomManager.required && !activeVehicle.uomManager.preflightReady) {
+            return RemoteIDIndicator.RIDState.ERROR
         }
         // We need to have comms and arm healthy to even be in any other state other than ERROR
         if (!commsFlag || !armFlag || emergencyDeclared) {

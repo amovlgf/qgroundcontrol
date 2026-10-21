@@ -10,6 +10,8 @@ ToolIndicatorPage {
 
     property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
 
+    readonly property var uom: _activeVehicle ? _activeVehicle.uomManager : null
+
     property bool   gpsFlag:            _activeVehicle && _activeVehicle.remoteIDManager ? _activeVehicle.remoteIDManager.gcsPositionUsable             : false
     property bool   basicIDFlag:        _activeVehicle && _activeVehicle.remoteIDManager ? !_activeVehicle.remoteIDManager.vehicleReportsBasicIDMissing : false
     property bool   armFlag:            _activeVehicle && _activeVehicle.remoteIDManager ? _activeVehicle.remoteIDManager.armStatusGoodToArm            : false
@@ -72,6 +74,40 @@ ToolIndicatorPage {
                     text:                       qsTr("RemoteID Status")
                     font.bold:                  true
                     anchors.horizontalCenter:   parent.horizontalCenter
+                }
+
+                Column {
+                    objectName: "uomIdentityPanel"
+                    visible: uom && uom.supported
+                    width: parent.width
+                    spacing: ScreenTools.defaultFontPixelHeight * 0.3
+                    QGCLabel {
+                        width: parent.width
+                        text: uom && uom.simulation ? qsTr("UOM SIMULATION — not official reporting") : qsTr("UOM network reporting")
+                        font.bold: true
+                        wrapMode: Text.WordWrap
+                    }
+                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? uom.identityStatus : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("Aircraft: %1").arg(uom.aircraftId || qsTr("Unknown")) : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("RID module: %1").arg(uom.moduleId || qsTr("Unknown")) : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("Registration: %1").arg(uom.registrationId || qsTr("Unknown")) : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? (uom.activated ? qsTr("RID activated") : qsTr("Activate through RID Wi-Fi page")) : "" }
+                    QGCLabel {
+                        objectName: "uomActivationResult"
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        visible: uom && uom.activationError > 0
+                        text: uom ? uom.activationResultText : ""
+                    }
+                    QGCLabel { text: uom ? qsTr("Active identity revision: %1").arg(uom.identityRevision) : "" }
+                    QGCLabel { visible: uom && uom.pendingRevision > 0; text: uom ? qsTr("Pending activation revision: %1").arg(uom.pendingRevision) : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? uom.statusText : "" }
+                    QGCLabel {
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: !uom ? "" : (uom.preflightReady ? (uom.simulation ? qsTr("Mock acknowledged; bench only") : qsTr("Network reporting ready")) : qsTr("Network reporting not ready"))
+                    }
+                    QGCLabel { visible: uom && uom.lastAckAgeMs < 4294967295; text: uom ? qsTr("Last response: %1 s ago").arg((uom.lastAckAgeMs / 1000).toFixed(1)) : "" }
                 }
 
                 GridLayout {

@@ -75,6 +75,7 @@
 #include "VehicleSigningController.h"
 #include "VehicleSupports.h"
 #include "VehicleTemperatureFactGroup.h"
+#include "VehicleUomManager.h"
 #include "VehicleVibrationFactGroup.h"
 #include "VehicleWindFactGroup.h"
 #include "VideoManager.h"
@@ -312,6 +313,7 @@ void Vehicle::_commonInit(LinkInterface* link)
 
     // Remote ID manager might want to acces parameters so make sure to create it after
     _remoteIDManager = new RemoteIDManager(this);
+    _uomManager = new VehicleUomManager(this);
 
     // Flight modes can differ based on advanced mode
     connect(QGCCorePlugin::instance(), &QGCCorePlugin::showAdvancedUIChanged, this, &Vehicle::flightModesChanged);
@@ -595,6 +597,7 @@ void Vehicle::_mavlinkMessageReceived(LinkInterface* link, mavlink_message_t mes
     _parameterManager->mavlinkMessageReceived(message);
     (void) QMetaObject::invokeMethod(_imageProtocolManager, "mavlinkMessageReceived", Qt::AutoConnection, message);
     _remoteIDManager->mavlinkMessageReceived(message);
+    _uomManager->mavlinkMessageReceived(message);
 
     _reqMsgCoord->handleReceivedMessage(message);
 

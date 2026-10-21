@@ -69,6 +69,7 @@ class RequestMessageCoordinator;
 class QGCCameraManager;
 class RallyPointManager;
 class RemoteIDManager;
+class VehicleUomManager;
 class RequestMessageTest;
 class RetryableRequestMessageStateTest;
 class SendMavCommandWithHandlerTest;
@@ -97,6 +98,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
     Q_MOC_INCLUDE("QGCMapCircle.h")
     Q_MOC_INCLUDE("QmlObjectListModel.h")
     Q_MOC_INCLUDE("RemoteIDManager.h")
+    Q_MOC_INCLUDE("VehicleUomManager.h")
     Q_MOC_INCLUDE("TrajectoryPoints.h")
     Q_MOC_INCLUDE("VehicleLinkManager.h")
     Q_MOC_INCLUDE("VehicleObjectAvoidance.h")
@@ -233,6 +235,7 @@ public:
     Q_PROPERTY(VehicleLinkManager*      vehicleLinkManager  READ vehicleLinkManager CONSTANT)
     Q_PROPERTY(VehicleObjectAvoidance*  objectAvoidance     READ objectAvoidance    CONSTANT)
     Q_PROPERTY(Autotune*                autotune            READ autotune           CONSTANT)
+    Q_PROPERTY(VehicleUomManager* uomManager READ uomManager CONSTANT)
     Q_PROPERTY(RemoteIDManager*         remoteIDManager     READ remoteIDManager    CONSTANT)
 
     // FactGroup object model properties
@@ -591,22 +594,34 @@ public:
     QmlObjectListModel* batteries           ();
     QmlObjectListModel* escs                ();
 
-    MissionManager*                 missionManager      () { return _missionManager; }
-    GeoFenceManager*                geoFenceManager     () { return _geoFenceManager; }
-    RallyPointManager*              rallyPointManager   () { return _rallyPointManager; }
-    ParameterManager*               parameterManager    () { return _parameterManager; }
-    ParameterManager*               parameterManager    () const { return _parameterManager; }
-    VehicleLinkManager*             vehicleLinkManager  () { return _vehicleLinkManager; }
-    FTPManager*                     ftpManager          () { return _ftpManager; }
-    ComponentInformationManager*    compInfoManager     () { return _componentInformationManager; }
-    VehicleObjectAvoidance*         objectAvoidance     () { return _objectAvoidance; }
-    Autotune*                       autotune            () const { return _autotune; }
-    RemoteIDManager*                remoteIDManager     () { return _remoteIDManager; }
+    MissionManager* missionManager() { return _missionManager; }
+
+    GeoFenceManager* geoFenceManager() { return _geoFenceManager; }
+
+    RallyPointManager* rallyPointManager() { return _rallyPointManager; }
+
+    ParameterManager* parameterManager() { return _parameterManager; }
+
+    ParameterManager* parameterManager() const { return _parameterManager; }
+
+    VehicleLinkManager* vehicleLinkManager() { return _vehicleLinkManager; }
+
+    FTPManager* ftpManager() { return _ftpManager; }
+
+    ComponentInformationManager* compInfoManager() { return _componentInformationManager; }
+
+    VehicleObjectAvoidance* objectAvoidance() { return _objectAvoidance; }
+
+    Autotune* autotune() const { return _autotune; }
+
+    VehicleUomManager* uomManager() const { return _uomManager; }
+
+    RemoteIDManager* remoteIDManager() { return _remoteIDManager; }
 
     static void showCommandAckError(const mavlink_command_ack_t& ack);
 
-    /// Sends the specified MAV_CMD to the vehicle. If no Ack is received command will be retried. If a sendMavCommand is already in progress
-    /// the command will be queued and sent when the previous command completes.
+    /// Sends the specified MAV_CMD to the vehicle. If no Ack is received command will be retried. If a sendMavCommand
+    /// is already in progress the command will be queued and sent when the previous command completes.
     ///     @param compId Component to send to.
     ///     @param command MAV_CMD to send
     ///     @param showError true: Display error to user if command failed, false:  no error shown
@@ -1160,6 +1175,7 @@ public:
     FTPManager*                     _ftpManager                 = nullptr;
     InitialConnectStateMachine*     _initialConnectStateMachine = nullptr;
     Actuators*                      _actuators                  = nullptr;
+    VehicleUomManager* _uomManager = nullptr;
     RemoteIDManager*                _remoteIDManager            = nullptr;
     StandardModes*                  _standardModes              = nullptr;
 

@@ -61,6 +61,8 @@ target_sources(
             VehicleGPSFactGroupTest.h
             VehicleLinkManagerTest.cc
             VehicleLinkManagerTest.h
+            VehicleUomManagerTest.cc
+            VehicleUomManagerTest.h
             VehicleReadinessTest.cc
             VehicleReadinessTest.h
 )
@@ -108,3 +110,7 @@ add_qgc_test(VehicleLinkManagerTest LABELS Integration Vehicle SERIAL)
 add_qgc_test(VehicleReadinessTest LABELS Unit Vehicle)
 add_qgc_test(VehicleReadinessPX4Test LABELS Integration Vehicle)
 add_qgc_test(VehicleReadinessAPMTest LABELS Integration Vehicle)
+
+add_subdirectory(UOM)
+
+add_qgc_test(VehicleUomManagerTest LABELS Integration Vehicle)

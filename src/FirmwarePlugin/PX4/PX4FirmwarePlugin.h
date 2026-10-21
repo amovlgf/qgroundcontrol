@@ -14,6 +14,8 @@ public:
     // Called internally only
     void _changeAltAfterPause(void* resultHandlerData, bool pauseSucceeded);
 
+    bool supportsRidUom() const override { return true; }
+
     // Overrides from FirmwarePlugin
 
     QList<MAV_CMD> supportedMissionCommands(QGCMAVLink::VehicleClass_t vehicleClass) const override;
