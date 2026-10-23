@@ -76,6 +76,18 @@ ToolIndicatorPage {
                     anchors.horizontalCenter:   parent.horizontalCenter
                 }
 
+                QGCButton {
+                    objectName: "ridManagementToolbarButton"
+                    text: qsTr("RID activation and parameters")
+                    visible: _activeVehicle && _activeVehicle.ridManager.available
+                    onClicked: {
+                        if (mainWindow.allowViewSwitch()) {
+                            mainWindow.closeIndicatorDrawer()
+                            mainWindow.showRidManagementPage()
+                        }
+                    }
+                }
+
                 Column {
                     objectName: "uomIdentityPanel"
                     visible: uom && uom.supported
@@ -91,7 +103,7 @@ ToolIndicatorPage {
                     QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("Aircraft: %1").arg(uom.aircraftId || qsTr("Unknown")) : "" }
                     QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("RID module: %1").arg(uom.moduleId || qsTr("Unknown")) : "" }
                     QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("Registration: %1").arg(uom.registrationId || qsTr("Unknown")) : "" }
-                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? (uom.activated ? qsTr("RID activated") : qsTr("Activate through RID Wi-Fi page")) : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? (uom.activated ? qsTr("RID activated") : (_activeVehicle && _activeVehicle.ridManager.supported ? qsTr("Synchronize activation in RID management") : qsTr("Activate through RID Wi-Fi page"))) : "" }
                     QGCLabel {
                         objectName: "uomActivationResult"
                         width: parent.width

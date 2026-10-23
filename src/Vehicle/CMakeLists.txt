@@ -63,3 +63,5 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_
 if(QGC_UOM_BENCH_TEST)
     target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE QGC_UOM_BENCH_TEST)
 endif()
+
+add_subdirectory(RID)

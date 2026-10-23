@@ -109,3 +109,6 @@ add_qgc_test(FlyViewGeoUITest LABELS Integration NoSanitizer TIMEOUT 120 ${_view
 add_qgc_test(FlyViewGeoROIUITest LABELS Integration NoSanitizer TIMEOUT 120 ${_viewer3d_env_mod})
 # Runs one row on the GeoMap engine, so it needs the same RHI environment
 add_qgc_test(FlyViewOccluderUITest LABELS Integration NoSanitizer TIMEOUT 120 ${_viewer3d_env_mod})
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE RidManagementUITest.cc RidManagementUITest.h)
+add_qgc_test(RidManagementUITest LABELS Integration NoSanitizer TIMEOUT 120)

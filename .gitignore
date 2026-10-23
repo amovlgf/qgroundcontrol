@@ -89,6 +89,7 @@ bin/mac
 build.ninja
 
 # Packaging & distribution
+/dist/
 *.dmg
 *.deb
 *.rpm
@@ -160,6 +161,9 @@ Qt*-linux*.tar.*
 # ------------------------------------------------------------------------------
 
 /profiler/
+/PX4_AI_Flight_Diagnostics_Forum_Update_EN.zip
+# Legacy submodule checkout; current builds use the CPM parameter repository.
+/src/FirmwarePlugin/APM/ArduPilot-Parameter-Repository/
 
 # AI Assistants
 .claude/

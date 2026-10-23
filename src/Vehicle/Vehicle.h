@@ -70,6 +70,7 @@ class QGCCameraManager;
 class RallyPointManager;
 class RemoteIDManager;
 class VehicleUomManager;
+class VehicleRidManager;
 class RequestMessageTest;
 class RetryableRequestMessageStateTest;
 class SendMavCommandWithHandlerTest;
@@ -99,6 +100,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
     Q_MOC_INCLUDE("QmlObjectListModel.h")
     Q_MOC_INCLUDE("RemoteIDManager.h")
     Q_MOC_INCLUDE("VehicleUomManager.h")
+    Q_MOC_INCLUDE("VehicleRidManager.h")
     Q_MOC_INCLUDE("TrajectoryPoints.h")
     Q_MOC_INCLUDE("VehicleLinkManager.h")
     Q_MOC_INCLUDE("VehicleObjectAvoidance.h")
@@ -236,6 +238,7 @@ public:
     Q_PROPERTY(VehicleObjectAvoidance*  objectAvoidance     READ objectAvoidance    CONSTANT)
     Q_PROPERTY(Autotune*                autotune            READ autotune           CONSTANT)
     Q_PROPERTY(VehicleUomManager* uomManager READ uomManager CONSTANT)
+    Q_PROPERTY(VehicleRidManager* ridManager READ ridManager CONSTANT)
     Q_PROPERTY(RemoteIDManager*         remoteIDManager     READ remoteIDManager    CONSTANT)
 
     // FactGroup object model properties
@@ -615,6 +618,8 @@ public:
     Autotune* autotune() const { return _autotune; }
 
     VehicleUomManager* uomManager() const { return _uomManager; }
+
+    VehicleRidManager* ridManager() const { return _ridManager; }
 
     RemoteIDManager* remoteIDManager() { return _remoteIDManager; }
 
@@ -1176,6 +1181,7 @@ public:
     InitialConnectStateMachine*     _initialConnectStateMachine = nullptr;
     Actuators*                      _actuators                  = nullptr;
     VehicleUomManager* _uomManager = nullptr;
+    VehicleRidManager* _ridManager = nullptr;
     RemoteIDManager*                _remoteIDManager            = nullptr;
     StandardModes*                  _standardModes              = nullptr;
 

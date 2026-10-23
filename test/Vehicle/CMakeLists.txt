@@ -114,3 +114,5 @@ add_qgc_test(VehicleReadinessAPMTest LABELS Integration Vehicle)
 add_subdirectory(UOM)
 
 add_qgc_test(VehicleUomManagerTest LABELS Integration Vehicle)
+
+add_subdirectory(RID)

@@ -128,6 +128,8 @@ public:
     /// @return true: Firmware supports all specified capabilites
     virtual bool supportsRidUom() const { return false; }
 
+    virtual bool supportsRidManagement() const { return false; }
+
     virtual bool isCapable(const Vehicle* /*vehicle*/, FirmwareCapabilities /*capabilities*/) const { return false; }
 
     /// Returns the list of available flight modes for the Fly View dropdown. This may or may not be the full

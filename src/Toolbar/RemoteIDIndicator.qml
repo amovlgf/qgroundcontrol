@@ -13,7 +13,7 @@ Item {
     anchors.top:    parent.top
     anchors.bottom: parent.bottom
 
-    property bool   showIndicator:      (remoteIDManager && remoteIDManager.available) || (activeVehicle && activeVehicle.uomManager && activeVehicle.uomManager.supported)
+    property bool   showIndicator:      (remoteIDManager && remoteIDManager.available) || (activeVehicle && activeVehicle.uomManager && activeVehicle.uomManager.supported) || (activeVehicle && activeVehicle.ridManager.supported)
 
     property var    activeVehicle:      QGroundControl.multiVehicleManager.activeVehicle
     property var    remoteIDManager:    activeVehicle ? activeVehicle.remoteIDManager : null

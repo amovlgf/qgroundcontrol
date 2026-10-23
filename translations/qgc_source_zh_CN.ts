@@ -22352,4 +22352,265 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <translation type="unfinished">Queued to vehicle links (all sources)</translation>
     </message>
   </context>
+  <context>
+    <name>RidManagement</name>
+    <message>
+      <source>RID activation and parameters</source>
+      <translation>RID 激活与参数</translation>
+    </message>
+    <message>
+      <source>Read the connected RID, then synchronize its activation state from the platform. Changes require the aircraft to be on the ground and disarmed.</source>
+      <translation>读取已连接的 RID，然后同步平台激活状态。修改时飞机必须在地面且未解锁。</translation>
+    </message>
+    <message>
+      <source>Connect an aircraft to manage RID</source>
+      <translation>连接飞控后管理 RID</translation>
+    </message>
+    <message>
+      <source>Read RID devices</source>
+      <translation>读取 RID 设备</translation>
+    </message>
+    <message>
+      <source>Product code (SN)</source>
+      <translation>产品唯一识别码（整机 SN）</translation>
+    </message>
+    <message>
+      <source>Not provisioned</source>
+      <translation>尚未预置</translation>
+    </message>
+    <message>
+      <source>RID module</source>
+      <translation>RID 模块</translation>
+    </message>
+    <message>
+      <source>Platform activation</source>
+      <translation>平台激活状态</translation>
+    </message>
+    <message>
+      <source>Effective RID activation</source>
+      <translation>RID 当前激活状态</translation>
+    </message>
+    <message>
+      <source>Activated</source>
+      <translation>已激活</translation>
+    </message>
+    <message>
+      <source>Not activated</source>
+      <translation>未激活</translation>
+    </message>
+    <message>
+      <source>Unknown</source>
+      <translation>未知</translation>
+    </message>
+    <message>
+      <source>This RID has no factory identity. First bind the aircraft product code (SN), then synchronize activation.</source>
+      <translation>此 RID 尚未预置出厂身份。请先绑定整机产品唯一识别码（SN），再同步激活状态。</translation>
+    </message>
+    <message>
+      <source>This RID firmware does not support factory identity provisioning through QGC. Install matching RID firmware first.</source>
+      <translation>当前 RID 固件不支持通过 QGC 预置出厂身份，请先升级配套的 RID 固件。</translation>
+    </message>
+    <message>
+      <source>Provision factory identity</source>
+      <translation>预置出厂身份</translation>
+    </message>
+    <message>
+      <source>Synchronize activation</source>
+      <translation>同步平台激活状态</translation>
+    </message>
+    <message>
+      <source>Confirm RID hardware UID: %1</source>
+      <translation>请核对 RID 硬件 UID：%1</translation>
+    </message>
+    <message>
+      <source>Aircraft product code (SN)</source>
+      <translation>整机产品唯一识别码（SN）</translation>
+    </message>
+    <message>
+      <source>20 ASCII characters, no spaces</source>
+      <translation>20 个 ASCII 字符，不能含空格</translation>
+    </message>
+    <message>
+      <source>Aircraft class (0–4)</source>
+      <translation>航空器类别（0–4）</translation>
+    </message>
+    <message>
+      <source>I verified the UID and SN and confirm this permanent binding</source>
+      <translation>我已核对 UID 和整机 SN，确认永久绑定</translation>
+    </message>
+    <message>
+      <source>The product code cannot be edited after provisioning. It survives restart, firmware updates and restoring ordinary defaults. The RID remains unactivated until platform synchronization.</source>
+      <translation>预置后不能在此修改产品识别码；重启、升级和恢复普通参数默认值均会保留。预置后仍未激活，需要另外同步平台激活状态。</translation>
+    </message>
+    <message>
+      <source>RID parameters are locked. Activation synchronization remains available.</source>
+      <translation>RID 参数已锁定，仍可同步平台激活状态。</translation>
+    </message>
+    <message>
+      <source>Hidden</source>
+      <translation>已隐藏</translation>
+    </message>
+    <message>
+      <source>Read only</source>
+      <translation>只读</translation>
+    </message>
+    <message>
+      <source>Unused in this profile</source>
+      <translation>当前配置未使用</translation>
+    </message>
+    <message>
+      <source>Restart required</source>
+      <translation>需要重启</translation>
+    </message>
+    <message>
+      <source>Edit</source>
+      <translation>编辑</translation>
+    </message>
+    <message>
+      <source>Restart RID</source>
+      <translation>重启 RID</translation>
+    </message>
+    <message>
+      <source>Restore RID defaults</source>
+      <translation>恢复 RID 默认参数</translation>
+    </message>
+    <message>
+      <source>Restore RID settings and restart the module? The factory product code and activation are retained.</source>
+      <translation>恢复 RID 参数并重启模块？出厂产品识别码和激活状态将保留。</translation>
+    </message>
+    <message>
+      <source>Restart the RID module to apply saved settings?</source>
+      <translation>重启 RID 模块以应用已保存的参数？</translation>
+    </message>
+  </context>
+  <context>
+    <name>VehicleRidManager</name>
+    <message>
+      <source>Product code must contain exactly 20 printable ASCII characters without spaces</source>
+      <translation>产品识别码必须恰好为 20 个可打印 ASCII 字符，不能含空格</translation>
+    </message>
+    <message>
+      <source>Aircraft class must be between 0 and 4</source>
+      <translation>航空器类别必须为 0 至 4</translation>
+    </message>
+    <message>
+      <source>Factory identity outcome is unknown. Reconnect and read RID devices to check the original transaction.</source>
+      <translation>出厂身份写入结果未知。请重新连接并读取 RID 设备，以核查原写入事务。</translation>
+    </message>
+    <message>
+      <source>Factory identity outcome is unknown: %1. Read RID devices to check the original transaction.</source>
+      <translation>出厂身份写入结果未知：%1。请读取 RID 设备，以核查原写入事务。</translation>
+    </message>
+    <message>
+      <source>Checking the original factory identity transaction</source>
+      <translation>正在核查原出厂身份写入事务</translation>
+    </message>
+    <message>
+      <source>RID module changed; confirm the hardware UID again</source>
+      <translation>RID 模块已改变，请重新核对硬件 UID</translation>
+    </message>
+    <message>
+      <source>Checking RID before binding its factory identity</source>
+      <translation>正在核对 RID 的首次预置条件</translation>
+    </message>
+    <message>
+      <source>Reading back the saved factory identity</source>
+      <translation>正在读回已保存的出厂身份</translation>
+    </message>
+    <message>
+      <source>RID factory identity readback did not confirm the requested unactivated identity</source>
+      <translation>读回的出厂身份与要求的未激活身份不一致</translation>
+    </message>
+    <message>
+      <source>Factory identity saved and verified. Synchronize platform activation next.</source>
+      <translation>出厂身份已保存并读回确认，接下来请同步平台激活状态。</translation>
+    </message>
+    <message>
+      <source>RID is no longer available for first-time factory identity provisioning; refresh the device</source>
+      <translation>RID 当前不满足首次预置条件，请重新读取设备</translation>
+    </message>
+    <message>
+      <source>Saving factory identity to RID</source>
+      <translation>正在向 RID 保存出厂身份</translation>
+    </message>
+    <message>
+      <source>RID factory identity fields did not confirm the saved class and identity version</source>
+      <translation>读回的航空器类别或身份版本与要求保存的出厂身份不一致</translation>
+    </message>
+    <message>
+      <source>CAN node %1: %2</source>
+      <translation>CAN 节点 %1：%2</translation>
+    </message>
+    <message>
+      <source>The flight controller did not discover any online CAN nodes. Check RID power and the CAN connection.</source>
+      <translation>飞控未发现在线 CAN 节点。请检查 RID 供电及 CAN 连接。</translation>
+    </message>
+    <message>
+      <source>CAN nodes were found, but no RID management identity was confirmed.</source>
+      <translation>飞控已发现 CAN 节点，但未能读到有效的 RID 管理身份。</translation>
+    </message>
+    <message>
+      <source>The flight controller returned an invalid CAN node list</source>
+      <translation>飞控返回的 CAN 节点列表无效</translation>
+    </message>
+    <message>
+      <source>Unsupported RID management protocol version %1</source>
+      <translation>不支持的 RID 管理协议版本 %1</translation>
+    </message>
+    <message>
+      <source>Invalid or unrelated RID management response</source>
+      <translation>RID 管理响应无效或与本次请求不匹配</translation>
+    </message>
+    <message>
+      <source>Invalid RID identity response</source>
+      <translation>RID 身份响应无效</translation>
+    </message>
+    <message>
+      <source>The flight controller did not answer the CAN-node discovery request. Check the connection and matching flight-controller firmware.</source>
+      <translation>飞控未响应 CAN 节点发现请求。请检查连接及配套飞控固件。</translation>
+    </message>
+    <message>
+      <source>Device-management transport is unsupported</source>
+      <translation>不支持设备管理传输</translation>
+    </message>
+    <message>
+      <source>The flight controller rejected the management request</source>
+      <translation>飞控拒绝了管理请求</translation>
+    </message>
+    <message>
+      <source>Device-management transport is busy</source>
+      <translation>设备管理传输正忙</translation>
+    </message>
+    <message>
+      <source>RID INFO request timed out</source>
+      <translation>RID 身份查询（INFO）超时</translation>
+    </message>
+    <message>
+      <source>CAN node is unavailable</source>
+      <translation>CAN 节点当前不可用</translation>
+    </message>
+    <message>
+      <source>This RID firmware does not support the operation</source>
+      <translation>此 RID 固件不支持该管理操作</translation>
+    </message>
+    <message>
+      <source>RID rejected the operation (%1)</source>
+      <translation>RID 拒绝了管理操作（%1）</translation>
+    </message>
+    <message>
+      <source>RID parameters read</source>
+      <translation>RID 参数读取完成</translation>
+    </message>
+    <message>
+      <source>Select the RID device to manage</source>
+      <translation>请选择要管理的 RID 设备</translation>
+    </message>
+  </context>
+  <context>
+    <name>RidTransportClient</name>
+    <message>
+      <source>Flight-controller firmware does not support RID management. Install matching firmware.</source>
+      <translation>飞控固件不支持 RID 管理，请安装配套的飞控固件。</translation>
+    </message>
+  </context>
 </TS>

@@ -83,6 +83,17 @@ void MAVLinkProtocol::logSentBytes(const LinkInterface* link, const QByteArray& 
 {
     Q_UNUSED(link);
 
+    // Device-management payloads may contain credentials. LinkInterface emits one
+    // complete serialized packet per send; leave all existing message logging intact.
+    if (data.size() >= MAVLINK_NUM_HEADER_BYTES && static_cast<uint8_t>(data[0]) == MAVLINK_STX) {
+        const auto messageId = static_cast<uint32_t>(static_cast<uint8_t>(data[7])) |
+                               (static_cast<uint32_t>(static_cast<uint8_t>(data[8])) << 8) |
+                               (static_cast<uint32_t>(static_cast<uint8_t>(data[9])) << 16);
+        if (messageId == MAVLINK_MSG_ID_AMOV_DEVICE_REQUEST) {
+            return;
+        }
+    }
+
     if (_logSuspendError || _logSuspendReplay || !_tempLogFile->isOpen()) {
         return;
     }
@@ -234,6 +245,10 @@ void MAVLinkProtocol::_forwardSupport(const mavlink_message_t& message)
 
 void MAVLinkProtocol::_logData(LinkInterface* link, const mavlink_message_t& message)
 {
+    // A router can echo another GCS's management requests back to this link.
+    if (message.msgid == MAVLINK_MSG_ID_AMOV_DEVICE_REQUEST) {
+        return;
+    }
     if (!_logSuspendError && !_logSuspendReplay && _tempLogFile->isOpen()) {
         // MAVLink spec §Logging: omit SETUP_SIGNING (contains secret key)
         if (message.msgid != MAVLINK_MSG_ID_SETUP_SIGNING) {

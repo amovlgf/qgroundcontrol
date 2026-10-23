@@ -62,6 +62,7 @@ private slots:
     void _vehicleCountChanged();
 
 private:
+    friend class VehicleRidManagerTest;
     void _logData(LinkInterface* link, const mavlink_message_t& message);
     bool _closeLogFile();
     void _startLogging();

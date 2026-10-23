@@ -43,6 +43,8 @@ qt_add_qml_module(VehicleSetupModule
         RemoteControlCalibration.qml
         RemoteControlChannelMonitor.qml
         RemoteControlChannelValueDisplay.qml
+        RidManagement.qml
+        RidParameterDialog.qml
         SetupParameterEditor.qml
         VehicleConfigView.qml
         VehicleSummary.qml

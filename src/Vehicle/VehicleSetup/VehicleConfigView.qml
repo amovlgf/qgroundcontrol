@@ -222,6 +222,10 @@ Rectangle {
         }
     }
 
+    function showRidPanel() {
+        showPanel("rid", "qrc:/qml/QGroundControl/VehicleSetup/RidManagement.qml")
+    }
+
     function showParametersPanel() {
         showPanel("parameters", "qrc:/qml/QGroundControl/VehicleSetup/SetupParameterEditor.qml")
     }
@@ -545,6 +549,15 @@ Rectangle {
                             }
                         }
                     }
+                }
+
+                ConfigButton {
+                    objectName: "vehicleConfig_ridButton"
+                    visible: _activeVehicle && _activeVehicle.ridManager.available && vehicleConfigView._searchQuery.trim() === ""
+                    text: qsTr("RID")
+                    Layout.fillWidth: true
+                    checked: vehicleConfigView._selectedSpecial === "rid"
+                    onClicked: showRidPanel()
                 }
 
                 // Optical Flow (special)
