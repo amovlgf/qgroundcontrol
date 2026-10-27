@@ -11,6 +11,11 @@ private slots:
     void _discoveryDiagnostics();
     void _activationRoundTrip_data();
     void _activationRoundTrip();
+    void _activationIdentityGuard_data();
+    void _activationIdentityGuard();
+    void _activationOutcomeFailure_data();
+    void _activationOutcomeFailure();
+    void _activationConcurrentRequestIsolation();
     void _identityAndSessionIsolation();
     void _maintenanceAndGroundRestriction();
     void _parameterValueBoundaries();

@@ -8,13 +8,9 @@
 
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QFile>
-#include <QtCore/QJsonDocument>
-#include <QtCore/QJsonObject>
 #include <QtCore/QScopeGuard>
 #include <QtCore/QTemporaryFile>
 #include <QtCore/QTimer>
-#include <QtNetwork/QTcpServer>
-#include <QtNetwork/QTcpSocket>
 
 #include "MAVLinkLib.h"
 #include "MAVLinkProtocol.h"
@@ -104,7 +100,8 @@ public:
         }
         requests.append(request);
         const auto infoFault = request.operation == Operation::INFO
-                                   ? infoFaults.value(envelope.node_id, InfoFault::None) : InfoFault::None;
+                                   ? infoFaults.value(envelope.node_id, InfoFault::None)
+                                   : InfoFault::None;
         if (infoFault == InfoFault::Timeout || infoFault == InfoFault::Unavailable) {
             send(envelope, {}, infoFault == InfoFault::Timeout ? 4 : 5);
             return;
@@ -282,7 +279,21 @@ public:
         std::memcpy(response.payload, payload.constData(), payload.size());
         mavlink_message_t message{};
         mavlink_msg_amov_device_response_encode(_vehicle->id(), _vehicle->defaultComponentId(), &message, &response);
-        _link->respondWithMavlinkMessage(message);
+        if (holdResponses) {
+            heldResponses.append(message);
+        } else {
+            _link->respondWithMavlinkMessage(message);
+        }
+    }
+
+    void releaseResponses()
+    {
+        holdResponses = false;
+        const auto responses = heldResponses;
+        heldResponses.clear();
+        for (const auto& response : responses) {
+            _link->respondWithMavlinkMessage(response);
+        }
     }
 
     MockLink* _link;
@@ -299,6 +310,8 @@ public:
     QByteArray deviceSerial = serial;
     bool provisioningSupported = false;
     bool holdDiscovery = false;
+    bool holdResponses = false;
+    QList<mavlink_message_t> heldResponses;
     QByteArray discoveredNodes = QByteArray(1, char(125));
     quint8 discoveryStatus = 0;
     QHash<quint8, InfoFault> infoFaults;
@@ -320,39 +333,6 @@ public:
     bool wrongSessionFirst = false;
 };
 
-class PlatformPeer : public QTcpServer
-{
-public:
-    PlatformPeer(const QJsonValue& state)
-        : _state(state)
-    {
-        listen(QHostAddress::LocalHost);
-        connect(this, &QTcpServer::newConnection, this, [this]() {
-            auto* socket = nextPendingConnection();
-            auto bytes = std::make_shared<QByteArray>();
-            connect(socket, &QTcpSocket::readyRead, socket, [this, socket, bytes]() {
-                bytes->append(socket->readAll());
-                if (!bytes->contains(serial))
-                    return;
-                request = *bytes;
-                const QJsonObject data{{"sn", QString::fromLatin1(serial)},
-                                       {"bound", true},
-                                       {"unique_product_code", QString::fromLatin1(serial)},
-                                       {"activation_state", _state}};
-                const auto body = QJsonDocument(QJsonObject{{"data", data}}).toJson(QJsonDocument::Compact);
-                socket->write("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " +
-                              QByteArray::number(body.size()) + "\r\nConnection: close\r\n\r\n" + body);
-                socket->disconnectFromHost();
-            });
-            connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
-        });
-    }
-
-    QUrl url() const { return QUrl(QString("http://127.0.0.1:%1/check-binding").arg(serverPort())); }
-
-    QJsonValue _state;
-    QByteArray request;
-};
 }  // namespace
 
 void VehicleRidManagerTest::_parameterRoundTripAndValidation()
@@ -388,35 +368,183 @@ void VehicleRidManagerTest::_parameterRoundTripAndValidation()
 
 void VehicleRidManagerTest::_activationRoundTrip_data()
 {
-    QTest::addColumn<QString>("state");
-    QTest::addColumn<int>("expected");
-    QTest::newRow("active") << "1" << 1;
-    QTest::newRow("inactive") << "2" << 0;
-    QTest::newRow("unknown") << "" << -1;
+    QTest::addColumn<bool>("active");
+    QTest::addColumn<bool>("receiptRecovery");
+    QTest::newRow("activate") << true << false;
+    QTest::newRow("deactivate") << false << false;
+    QTest::newRow("activate-recover-receipt") << true << true;
+    QTest::newRow("deactivate-recover-receipt") << false << true;
 }
 
 void VehicleRidManagerTest::_activationRoundTrip()
 {
-    QFETCH(QString, state);
-    QFETCH(int, expected);
-    PlatformPeer platform(state);
-    QVERIFY(platform.isListening());
+    QFETCH(bool, active);
+    QFETCH(bool, receiptRecovery);
     RidPeer peer(mockLink(), vehicle());
-    peer.active = 1;
-    VehicleRidManager manager(vehicle(), platform.url());
-    connect(vehicle(), &Vehicle::mavlinkMessageReceived, &manager, &VehicleRidManager::mavlinkMessageReceived);
-    manager.refresh();
-    QTRY_VERIFY_WITH_TIMEOUT(manager.supported() && !manager.busy(), TestTimeout::mediumMs());
-    manager.syncActivation();
-    QTRY_VERIFY_WITH_TIMEOUT(!manager.busy(), TestTimeout::mediumMs());
-    QVERIFY(platform.request.startsWith("POST /check-binding "));
-    QCOMPARE(peer.mutations, expected < 0 ? 0 : 1);
-    QCOMPARE(manager.activationState(), expected < 0 ? 1 : expected);
+    peer.active = active ? 0 : 1;
+    peer.timeoutMutation = receiptRecovery;
+    auto* manager = vehicle()->ridManager();
+    QSignalSpy read(manager, &VehicleRidManager::activationRead);
+    QSignalSpy written(manager, &VehicleRidManager::activationWritten);
+    QSignalSpy failed(manager, &VehicleRidManager::activationFailed);
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    QVERIFY(manager->readActivation(10));
+    QTRY_COMPARE_WITH_TIMEOUT(read.count(), 1, TestTimeout::mediumMs());
+    QCOMPARE(read.at(0).at(0).toULongLong(), quint64(10));
+    QCOMPARE(read.at(0).at(2).toInt(), active ? 0 : 1);
+    QCOMPARE(peer.mutations, 0);
+    const auto context = qvariant_cast<RidActivationContext>(read.at(0).at(1));
+    QVERIFY(context == manager->activationContext());
+    QVERIFY(manager->setActivation(11, context, active));
+    QTRY_COMPARE_WITH_TIMEOUT(written.count(), 1, TestTimeout::mediumMs());
+    QCOMPARE(written.at(0).at(0).toULongLong(), quint64(11));
+    QCOMPARE(written.at(0).at(2).toInt(), active ? 1 : 0);
+    QVERIFY(qvariant_cast<RidActivationContext>(written.at(0).at(1)) == manager->activationContext());
+    QCOMPARE(manager->activationState(), active ? 1 : 0);
+    QCOMPARE(peer.mutations, 1);
     QCOMPARE(peer.error, QString());
-    if (expected >= 0) {
-        QCOMPARE(manager._revision, quint32(13));
-        QVERIFY(manager.statusText().contains("Synchronization complete"));
+    QCOMPARE(failed.count(), 0);
+    QCOMPARE(manager->activationContext().revision, quint32(13));
+    QVERIFY(!manager->busy());
+}
+
+void VehicleRidManagerTest::_activationIdentityGuard_data()
+{
+    QTest::addColumn<QString>("field");
+    QTest::addColumn<bool>("deviceChanged");
+    for (const char* field : {"serial", "uid", "boot", "revision", "generation"}) {
+        QTest::newRow(qPrintable(QStringLiteral("stale-%1").arg(field))) << QString::fromLatin1(field) << false;
+        if (std::strcmp(field, "generation")) {
+            QTest::newRow(qPrintable(QStringLiteral("device-%1").arg(field))) << QString::fromLatin1(field) << true;
+        }
     }
+}
+
+void VehicleRidManagerTest::_activationIdentityGuard()
+{
+    QFETCH(QString, field);
+    QFETCH(bool, deviceChanged);
+    RidPeer peer(mockLink(), vehicle());
+    auto* manager = vehicle()->ridManager();
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    auto context = manager->activationContext();
+    if (deviceChanged) {
+        if (field == "serial") {
+            peer.deviceSerial[0] = 'X';
+        } else if (field == "uid") {
+            peer.uid[0] = '\x22';
+        } else if (field == "boot") {
+            ++peer.boot;
+        } else if (field == "revision") {
+            ++peer.revision;
+        }
+    } else if (field == "serial") {
+        context.serial[0] = u'X';
+    } else if (field == "uid") {
+        context.uid[0] = u'F';
+    } else if (field == "boot") {
+        ++context.boot;
+    } else if (field == "revision") {
+        ++context.revision;
+    } else {
+        ++context.generation;
+    }
+    QSignalSpy failed(manager, &VehicleRidManager::activationFailed);
+    QSignalSpy written(manager, &VehicleRidManager::activationWritten);
+    QCOMPARE(manager->setActivation(12, context, true), deviceChanged);
+    QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, TestTimeout::mediumMs());
+    QCOMPARE(failed.at(0).at(0).toULongLong(), quint64(12));
+    QVERIFY(!failed.at(0).at(2).toBool());
+    QCOMPARE(written.count(), 0);
+    QCOMPARE(peer.mutations, 0);
+    QVERIFY(!manager->busy());
+}
+
+void VehicleRidManagerTest::_activationOutcomeFailure_data()
+{
+    QTest::addColumn<QString>("failure");
+    QTest::addColumn<bool>("uncertain");
+    QTest::newRow("no-durable-receipt") << QStringLiteral("durability") << true;
+    QTest::newRow("readback-mismatch") << QStringLiteral("readback") << true;
+    QTest::newRow("disconnect-after-write") << QStringLiteral("disconnect") << true;
+    QTest::newRow("read-failed") << QStringLiteral("read") << false;
+}
+
+void VehicleRidManagerTest::_activationOutcomeFailure()
+{
+    QFETCH(QString, failure);
+    QFETCH(bool, uncertain);
+    RidPeer peer(mockLink(), vehicle());
+    auto* manager = vehicle()->ridManager();
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    QSignalSpy failed(manager, &VehicleRidManager::activationFailed);
+    QSignalSpy written(manager, &VehicleRidManager::activationWritten);
+    QSignalSpy read(manager, &VehicleRidManager::activationRead);
+    if (failure == "durability") {
+        peer.omitDurability = true;
+    } else if (failure == "readback") {
+        peer.afterMutation = [&peer]() { peer.active = 0; };
+    } else if (failure == "disconnect") {
+        peer.afterMutation = [manager]() { manager->_resetConnection(); };
+    } else {
+        peer.infoFaults.insert(125, InfoFault::Timeout);
+    }
+    if (failure == "read") {
+        QVERIFY(manager->readActivation(13));
+    } else {
+        QVERIFY(manager->setActivation(13, manager->activationContext(), true));
+    }
+    QTRY_COMPARE_WITH_TIMEOUT(failed.count(), 1, TestTimeout::mediumMs());
+    QCOMPARE(failed.at(0).at(0).toULongLong(), quint64(13));
+    QCOMPARE(failed.at(0).at(2).toBool(), uncertain);
+    QCOMPARE(written.count(), 0);
+    QCOMPARE(read.count(), 0);
+    QVERIFY(!manager->busy());
+    QCoreApplication::processEvents();
+    QCOMPARE(failed.count(), 1);
+    QCOMPARE(written.count(), 0);
+    QCOMPARE(peer.error, QString());
+}
+
+void VehicleRidManagerTest::_activationConcurrentRequestIsolation()
+{
+    RidPeer peer(mockLink(), vehicle());
+    auto* manager = vehicle()->ridManager();
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    QSignalSpy read(manager, &VehicleRidManager::activationRead);
+    QSignalSpy written(manager, &VehicleRidManager::activationWritten);
+    QSignalSpy failed(manager, &VehicleRidManager::activationFailed);
+    peer.holdResponses = true;
+    QVERIFY(manager->readActivation(101));
+    QTRY_COMPARE_WITH_TIMEOUT(peer.heldResponses.size(), 1, TestTimeout::mediumMs());
+    QVERIFY(manager->busy());
+    QCOMPARE(read.count(), 0);
+    QVERIFY(!manager->readActivation(102));
+    QCOMPARE(failed.count(), 1);
+    QCOMPARE(failed.at(0).at(0).toULongLong(), quint64(102));
+    peer.releaseResponses();
+    QTRY_COMPARE_WITH_TIMEOUT(read.count(), 1, TestTimeout::mediumMs());
+    QCOMPARE(read.at(0).at(0).toULongLong(), quint64(101));
+    const auto context = qvariant_cast<RidActivationContext>(read.at(0).at(1));
+    peer.holdResponses = true;
+    QVERIFY(manager->setActivation(103, context, true));
+    QTRY_COMPARE_WITH_TIMEOUT(peer.heldResponses.size(), 1, TestTimeout::mediumMs());
+    QVERIFY(manager->busy());
+    QCOMPARE(written.count(), 0);
+    QVERIFY(!manager->setActivation(104, context, false));
+    QCOMPARE(failed.count(), 2);
+    QCOMPARE(failed.at(1).at(0).toULongLong(), quint64(104));
+    peer.releaseResponses();
+    QTRY_COMPARE_WITH_TIMEOUT(written.count(), 1, TestTimeout::mediumMs());
+    QCOMPARE(written.at(0).at(0).toULongLong(), quint64(103));
+    QCOMPARE(written.at(0).at(2).toInt(), 1);
+    QCOMPARE(manager->activationState(), 1);
+    QCOMPARE(peer.mutations, 1);
+    QCOMPARE(peer.error, QString());
 }
 
 void VehicleRidManagerTest::_identityAndSessionIsolation()
@@ -456,15 +584,19 @@ void VehicleRidManagerTest::_maintenanceAndGroundRestriction()
     QCOMPARE(manager->serial().toLatin1(), serial);
     QVERIFY(manager->_parameters.defaultsMatch());
     const int writes = peer.mutations;
+    const auto beforeArming = manager->activationContext();
     mockLink()->setArmed(true);
     QTRY_VERIFY_WITH_TIMEOUT(vehicle()->armed(), TestTimeout::mediumMs());
     QVERIFY(!manager->canWrite());
     manager->writeParameter("WIFI_SSID", "blocked");
-    manager->syncActivation();
+    QVERIFY(!manager->setActivation(14, manager->activationContext(), true));
+    QVERIFY(!manager->readActivation(15));
     manager->resetDefaults();
     QCOMPARE(peer.mutations, writes);
     mockLink()->setArmed(false);
     QTRY_VERIFY_WITH_TIMEOUT(!vehicle()->armed(), TestTimeout::mediumMs());
+    QVERIFY(!manager->setActivation(16, beforeArming, true));
+    QCOMPARE(peer.mutations, writes);
     QCOMPARE(peer.error, QString());
     ignoreLogMessage("Utilities.QGCSensors", QtWarningMsg, QRegularExpression("Failed to connect to pressure backend"));
     ignoreLogMessage("Utilities.QGCSensors", QtWarningMsg, QRegularExpression("Error Initializing Pressure Sensor"));
@@ -645,8 +777,8 @@ void VehicleRidManagerTest::_factoryProvisionRoundTrip()
 void VehicleRidManagerTest::_factoryProvisionRefusal_data()
 {
     QTest::addColumn<QString>("condition");
-    for (const char* condition : {"unsupported", "provisioned", "locked", "armed", "wrong-uid", "short-sn",
-                                  "space-sn", "unicode-sn", "invalid-class", "busy"}) {
+    for (const char* condition : {"unsupported", "provisioned", "locked", "armed", "wrong-uid", "short-sn", "space-sn",
+                                  "unicode-sn", "invalid-class", "busy"}) {
         QTest::newRow(condition) << QString::fromLatin1(condition);
     }
 }
@@ -769,31 +901,29 @@ void VehicleRidManagerTest::_discoveryDiagnostics_data()
 {
     QTest::addColumn<QString>("scenario");
     QTest::addColumn<QStringList>("details");
-    QTest::newRow("empty-list") << QStringLiteral("empty-list")
-                                << QStringList{"did not discover any online CAN nodes"};
+    QTest::newRow("empty-list") << QStringLiteral("empty-list") << QStringList{"did not discover any online CAN nodes"};
     QTest::newRow("timeout") << QStringLiteral("timeout") << QStringList{"CAN node 125", "INFO request timed out"};
     QTest::newRow("unavailable") << QStringLiteral("unavailable") << QStringList{"CAN node 125", "unavailable"};
     QTest::newRow("invalid-payload") << QStringLiteral("invalid-payload")
-                                    << QStringList{"CAN node 125", "Invalid or unrelated"};
+                                     << QStringList{"CAN node 125", "Invalid or unrelated"};
     QTest::newRow("protocol-version") << QStringLiteral("protocol-version")
-                                     << QStringList{"CAN node 125", "Unsupported RID management protocol version 2"};
+                                      << QStringList{"CAN node 125", "Unsupported RID management protocol version 2"};
     QTest::newRow("unsupported") << QStringLiteral("unsupported")
-                                << QStringList{"CAN node 125", "does not support the operation"};
+                                 << QStringList{"CAN node 125", "does not support the operation"};
     QTest::newRow("invalid-identity") << QStringLiteral("invalid-identity")
-                                     << QStringList{"CAN node 125", "Invalid RID identity response"};
-    QTest::newRow("unrelated") << QStringLiteral("unrelated")
-                              << QStringList{"CAN node 125", "Invalid or unrelated"};
+                                      << QStringList{"CAN node 125", "Invalid RID identity response"};
+    QTest::newRow("unrelated") << QStringLiteral("unrelated") << QStringList{"CAN node 125", "Invalid or unrelated"};
     QTest::newRow("missing-bridge") << QStringLiteral("missing-bridge")
-                                   << QStringList{"Flight-controller firmware does not support RID management"};
+                                    << QStringList{"Flight-controller firmware does not support RID management"};
     QTest::newRow("list-timeout") << QStringLiteral("list-timeout")
-                                 << QStringList{"flight controller did not answer the CAN-node discovery request"};
+                                  << QStringList{"flight controller did not answer the CAN-node discovery request"};
     QTest::newRow("invalid-list") << QStringLiteral("invalid-list")
-                                 << QStringList{"flight controller returned an invalid CAN node list"};
+                                  << QStringList{"flight controller returned an invalid CAN node list"};
     QTest::newRow("mixed") << QStringLiteral("mixed")
-                          << QStringList{"RID parameters read", "CAN node 124", "INFO request timed out"};
+                           << QStringList{"RID parameters read", "CAN node 124", "INFO request timed out"};
     QTest::newRow("multiple-failures") << QStringLiteral("multiple-failures")
-                                      << QStringList{"CAN node 124", "INFO request timed out", "CAN node 125",
-                                                     "Invalid or unrelated"};
+                                       << QStringList{"CAN node 124", "INFO request timed out", "CAN node 125",
+                                                      "Invalid or unrelated"};
 }
 
 void VehicleRidManagerTest::_discoveryDiagnostics()
@@ -801,11 +931,13 @@ void VehicleRidManagerTest::_discoveryDiagnostics()
     QFETCH(QString, scenario);
     QFETCH(QStringList, details);
     RidPeer peer(mockLink(), vehicle());
-    const QHash<QString, InfoFault> faults{
-        {"timeout", InfoFault::Timeout}, {"unavailable", InfoFault::Unavailable},
-        {"invalid-payload", InfoFault::InvalidPayload}, {"protocol-version", InfoFault::ProtocolVersion},
-        {"unsupported", InfoFault::Unsupported}, {"invalid-identity", InfoFault::InvalidIdentity},
-        {"unrelated", InfoFault::Unrelated}};
+    const QHash<QString, InfoFault> faults{{"timeout", InfoFault::Timeout},
+                                           {"unavailable", InfoFault::Unavailable},
+                                           {"invalid-payload", InfoFault::InvalidPayload},
+                                           {"protocol-version", InfoFault::ProtocolVersion},
+                                           {"unsupported", InfoFault::Unsupported},
+                                           {"invalid-identity", InfoFault::InvalidIdentity},
+                                           {"unrelated", InfoFault::Unrelated}};
     peer.infoFaults.insert(125, faults.value(scenario, InfoFault::None));
     if (scenario == QStringLiteral("empty-list")) {
         peer.discoveredNodes.clear();

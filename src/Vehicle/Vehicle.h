@@ -71,6 +71,7 @@ class RallyPointManager;
 class RemoteIDManager;
 class VehicleUomManager;
 class VehicleRidManager;
+class VehicleUomRegistrationManager;
 class RequestMessageTest;
 class RetryableRequestMessageStateTest;
 class SendMavCommandWithHandlerTest;
@@ -101,6 +102,7 @@ class Vehicle : public VehicleFactGroup, public VehicleTypes
     Q_MOC_INCLUDE("RemoteIDManager.h")
     Q_MOC_INCLUDE("VehicleUomManager.h")
     Q_MOC_INCLUDE("VehicleRidManager.h")
+    Q_MOC_INCLUDE("VehicleUomRegistrationManager.h")
     Q_MOC_INCLUDE("TrajectoryPoints.h")
     Q_MOC_INCLUDE("VehicleLinkManager.h")
     Q_MOC_INCLUDE("VehicleObjectAvoidance.h")
@@ -239,6 +241,7 @@ public:
     Q_PROPERTY(Autotune*                autotune            READ autotune           CONSTANT)
     Q_PROPERTY(VehicleUomManager* uomManager READ uomManager CONSTANT)
     Q_PROPERTY(VehicleRidManager* ridManager READ ridManager CONSTANT)
+    Q_PROPERTY(VehicleUomRegistrationManager* uomRegistrationManager READ uomRegistrationManager CONSTANT)
     Q_PROPERTY(RemoteIDManager*         remoteIDManager     READ remoteIDManager    CONSTANT)
 
     // FactGroup object model properties
@@ -620,6 +623,8 @@ public:
     VehicleUomManager* uomManager() const { return _uomManager; }
 
     VehicleRidManager* ridManager() const { return _ridManager; }
+
+    VehicleUomRegistrationManager* uomRegistrationManager() const { return _uomRegistrationManager; }
 
     RemoteIDManager* remoteIDManager() { return _remoteIDManager; }
 
@@ -1182,6 +1187,7 @@ public:
     Actuators*                      _actuators                  = nullptr;
     VehicleUomManager* _uomManager = nullptr;
     VehicleRidManager* _ridManager = nullptr;
+    VehicleUomRegistrationManager* _uomRegistrationManager = nullptr;
     RemoteIDManager*                _remoteIDManager            = nullptr;
     StandardModes*                  _standardModes              = nullptr;
 

@@ -65,3 +65,9 @@ if(QGC_UOM_BENCH_TEST)
 endif()
 
 add_subdirectory(RID)
+
+add_subdirectory(UOM/Registration)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE QGCUomRegistrationCore)
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE UOM/Registration/VehicleUomRegistrationManager.cc
+                                             UOM/Registration/VehicleUomRegistrationManager.h
+)

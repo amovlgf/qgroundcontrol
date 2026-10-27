@@ -13,6 +13,7 @@ Rectangle {
     readonly property var manager: vehicle ? vehicle.ridManager : null
 
     QGCFlickable {
+        objectName: "ridManagementFlickable"
         anchors.fill: parent
         anchors.margins: ScreenTools.defaultFontPixelWidth
         contentWidth: width
@@ -24,11 +25,16 @@ Rectangle {
             width: parent.width
             spacing: ScreenTools.defaultFontPixelHeight
 
-            QGCLabel { text: qsTr("RID activation and parameters"); font.bold: true }
+            UomRegistrationPanel {
+                Layout.fillWidth: true
+                manager: root.vehicle ? root.vehicle.uomRegistrationManager : null
+                ridManager: root.manager
+            }
+            QGCLabel { text: qsTr("RID identity and parameters"); font.bold: true }
             QGCLabel {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
-                text: qsTr("Read the connected RID, then synchronize its activation state from the platform. Changes require the aircraft to be on the ground and disarmed.")
+                text: qsTr("Read the connected RID to inspect its identity and parameters. Changes require the aircraft to be on the ground and disarmed.")
             }
             QGCLabel {
                 Layout.fillWidth: true
@@ -59,8 +65,6 @@ Rectangle {
                 QGCLabel { text: root.manager ? root.manager.serial || qsTr("Not provisioned") : ""; textFormat: Text.PlainText }
                 QGCLabel { text: qsTr("RID module") }
                 QGCLabel { text: root.manager ? root.manager.uid + " / " + root.manager.nodeId : "" }
-                QGCLabel { text: qsTr("Platform activation") }
-                QGCLabel { text: root.manager ? root.manager.platformState : ""; Layout.fillWidth: true; wrapMode: Text.WordWrap }
                 QGCLabel { text: qsTr("Effective RID activation") }
                 QGCLabel { text: !root.manager ? "" : root.manager.activationState === 1 ? qsTr("Activated") : root.manager.activationState === 0 ? qsTr("Not activated") : qsTr("Unknown") }
             }
@@ -69,7 +73,7 @@ Rectangle {
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 text: root.manager && root.manager.factoryProvisionSupported
-                      ? qsTr("This RID has no factory identity. First bind the aircraft product code (SN), then synchronize activation.")
+                      ? qsTr("This RID has no factory identity. Bind the aircraft product code (SN) before UOM registration and activation.")
                       : qsTr("This RID firmware does not support factory identity provisioning through QGC. Install matching RID firmware first.")
             }
             QGCButton {
@@ -79,15 +83,9 @@ Rectangle {
                 enabled: root.manager && root.manager.canProvision
                 onClicked: provisionFactory.open({ ridManager: root.manager, targetUid: root.manager.uid })
             }
-            QGCButton {
-                objectName: "ridSyncActivationButton"
-                text: qsTr("Synchronize activation")
-                enabled: root.manager && root.manager.canWrite && root.manager.serial.length === 20
-                onClicked: root.manager.syncActivation()
-            }
             QGCLabel {
                 visible: root.manager && root.manager.locked
-                text: qsTr("RID parameters are locked. Activation synchronization remains available.")
+                text: qsTr("RID parameters are locked.")
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
             }
@@ -188,7 +186,7 @@ Rectangle {
                 QGCLabel {
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
-                    text: qsTr("The product code cannot be edited after provisioning. It survives restart, firmware updates and restoring ordinary defaults. The RID remains unactivated until platform synchronization.")
+                    text: qsTr("The product code cannot be edited after provisioning. It survives restart, firmware updates and restoring ordinary defaults. Complete UOM registration and device activation before flight.")
                 }
             }
             Connections {

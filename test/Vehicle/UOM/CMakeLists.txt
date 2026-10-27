@@ -24,3 +24,5 @@ target_compile_definitions(QGCHttpUomTest
 )
 add_test(NAME HttpUomTest COMMAND QGCHttpUomTest)
 set_tests_properties(HttpUomTest PROPERTIES LABELS "Integration;Vehicle" TIMEOUT 30)
+
+add_subdirectory(Registration)

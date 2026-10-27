@@ -77,6 +77,7 @@
 #include "VehicleSupports.h"
 #include "VehicleTemperatureFactGroup.h"
 #include "VehicleUomManager.h"
+#include "VehicleUomRegistrationManager.h"
 #include "VehicleVibrationFactGroup.h"
 #include "VehicleWindFactGroup.h"
 #include "VideoManager.h"
@@ -316,6 +317,7 @@ void Vehicle::_commonInit(LinkInterface* link)
     _remoteIDManager = new RemoteIDManager(this);
     _uomManager = new VehicleUomManager(this);
     _ridManager = new VehicleRidManager(this);
+    _uomRegistrationManager = new VehicleUomRegistrationManager(this);
 
     // Flight modes can differ based on advanced mode
     connect(QGCCorePlugin::instance(), &QGCCorePlugin::showAdvancedUIChanged, this, &Vehicle::flightModesChanged);

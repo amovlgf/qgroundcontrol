@@ -5,11 +5,22 @@
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include "MAVLinkMessageType.h"
-#include "RidActivationSyncController.h"
 #include "RidParameterManager.h"
 #include "RidTransportClient.h"
 
 class Vehicle;
+
+struct RidActivationContext
+{
+    QString serial;
+    QString uid;
+    quint32 boot = 0;
+    quint32 revision = 0;
+    quint64 generation = 0;
+
+    bool operator==(const RidActivationContext&) const = default;
+};
+Q_DECLARE_METATYPE(RidActivationContext)
 
 class VehicleRidManager final : public QObject
 {
@@ -27,7 +38,6 @@ class VehicleRidManager final : public QObject
     Q_PROPERTY(QString uid READ uid NOTIFY changed)
     Q_PROPERTY(int nodeId READ nodeId NOTIFY changed)
     Q_PROPERTY(int activationState READ activationState NOTIFY changed)
-    Q_PROPERTY(QString platformState READ platformState NOTIFY changed)
     Q_PROPERTY(QString statusText READ statusText NOTIFY changed)
     Q_PROPERTY(QVariantList parameters READ parameters NOTIFY parametersChanged)
     Q_PROPERTY(QStringList devices READ devices NOTIFY changed)
@@ -57,8 +67,6 @@ public:
 
     int activationState() const { return _activationState; }
 
-    QString platformState() const { return _platformState; }
-
     QString statusText() const { return _status; }
 
     QVariantList parameters() const { return _parameters.entries(); }
@@ -67,9 +75,13 @@ public:
 
     int selectedDevice() const { return _selectedDevice; }
 
+    static bool validSerial(const QString& serial);
+    RidActivationContext activationContext() const;
+    bool readActivation(quint64 requestId);
+    bool setActivation(quint64 requestId, const RidActivationContext& expected, bool active);
+
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void selectDevice(int index);
-    Q_INVOKABLE void syncActivation();
     Q_INVOKABLE QString factoryIdentityError(const QString& serial, int aircraftClass) const;
     Q_INVOKABLE void provisionFactoryIdentity(const QString& expectedUid, const QString& serial, int aircraftClass);
     Q_INVOKABLE void writeParameter(const QString& name, const QString& value);
@@ -79,18 +91,20 @@ public:
 signals:
     void changed();
     void parametersChanged();
+    void activationRead(quint64 requestId, const RidActivationContext& context, int state);
+    void activationWritten(quint64 requestId, const RidActivationContext& context, int state);
+    void activationFailed(quint64 requestId, const QString& detail, bool uncertain);
 
 private:
     friend class VehicleRidManagerTest;
-    VehicleRidManager(Vehicle* vehicle, const QUrl& platformEndpoint);
     enum class Stage
     {
         Idle,
         Listing,
         Probing,
         Metadata,
-        SyncInfo,
-        Platform,
+        ActivationRead,
+        ActivationInfo,
         ActivationWrite,
         ActivationVerify,
         ParameterInfo,
@@ -135,7 +149,6 @@ private:
     static QString _resultText(amov_device::Result result);
     Vehicle* _vehicle;
     RidTransportClient _transport;
-    RidActivationSyncController _activation;
     RidParameterManager _parameters;
     Stage _stage = Stage::Idle;
     amov_device::Request _pending;
@@ -162,10 +175,11 @@ private:
     amov_device::Request _provisionRequest;
     QByteArray _provisionDigest;
     bool _targetActive = false;
+    quint64 _activationRequestId = 0;
+    bool _activationMutationIssued = false;
+    RidActivationContext _activationExpected;
     int _activationState = 2;
     QString _serial;
-    QString _querySerial;
-    QString _platformState = tr("Not queried");
     bool _verifyDefaults = false;
     QString _status;
     QString _parameterName;

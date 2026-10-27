@@ -30,6 +30,7 @@
   - [MAVLink Actions](qgc-user-guide/custom_actions/custom_actions.md)
 
 - [载具配置](qgc-user-guide/setup_view/setup_view.md)
+  - [B950 直接对接 UOM](qgc-user-guide/setup_view/uom_b950.md)
   - [Summary](qgc-user-guide/setup_view/summary.md)
   - [PX4](qgc-user-guide/setup_view/px4/index.md)
     - [Actuators / Motors](qgc-user-guide/setup_view/px4/actuators.md)

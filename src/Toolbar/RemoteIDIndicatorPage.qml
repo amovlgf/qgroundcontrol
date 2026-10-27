@@ -11,6 +11,7 @@ ToolIndicatorPage {
     property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
 
     readonly property var uom: _activeVehicle ? _activeVehicle.uomManager : null
+    readonly property var registration: _activeVehicle ? _activeVehicle.uomRegistrationManager : null
 
     property bool   gpsFlag:            _activeVehicle && _activeVehicle.remoteIDManager ? _activeVehicle.remoteIDManager.gcsPositionUsable             : false
     property bool   basicIDFlag:        _activeVehicle && _activeVehicle.remoteIDManager ? !_activeVehicle.remoteIDManager.vehicleReportsBasicIDMissing : false
@@ -64,7 +65,7 @@ ToolIndicatorPage {
             Column {
                 id:                         remoteIDCol
                 spacing:                    ScreenTools.defaultFontPixelHeight * 0.5
-                width:                      Math.max(remoteIDGrid.width, remoteIDLabel.width)
+                width:                      Math.max(remoteIDGrid.width, remoteIDLabel.width, ridManagementButton.implicitWidth)
                 anchors.margins:            ScreenTools.defaultFontPixelHeight
                 anchors.top:                parent.top
                 anchors.horizontalCenter:   parent.horizontalCenter
@@ -77,8 +78,9 @@ ToolIndicatorPage {
                 }
 
                 QGCButton {
+                    id: ridManagementButton
                     objectName: "ridManagementToolbarButton"
-                    text: qsTr("RID activation and parameters")
+                    text: qsTr("UOM registration and RID management")
                     visible: _activeVehicle && _activeVehicle.ridManager.available
                     onClicked: {
                         if (mainWindow.allowViewSwitch()) {
@@ -86,6 +88,15 @@ ToolIndicatorPage {
                             mainWindow.showRidManagementPage()
                         }
                     }
+                }
+
+                QGCLabel {
+                    objectName: "uomRegistrationToolbarStatus"
+                    width: parent.width
+                    visible: registration !== null
+                    wrapMode: Text.WordWrap
+                    textFormat: Text.PlainText
+                    text: registration ? qsTr("UOM real-name registration: %1").arg(registration.registrationText) : ""
                 }
 
                 Column {
@@ -103,7 +114,7 @@ ToolIndicatorPage {
                     QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("Aircraft: %1").arg(uom.aircraftId || qsTr("Unknown")) : "" }
                     QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("RID module: %1").arg(uom.moduleId || qsTr("Unknown")) : "" }
                     QGCLabel { width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: uom ? qsTr("Registration: %1").arg(uom.registrationId || qsTr("Unknown")) : "" }
-                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? (uom.activated ? qsTr("RID activated") : (_activeVehicle && _activeVehicle.ridManager.supported ? qsTr("Synchronize activation in RID management") : qsTr("Activate through RID Wi-Fi page"))) : "" }
+                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? (uom.activated ? qsTr("RID activated") : qsTr("Manage activation in UOM registration")) : "" }
                     QGCLabel {
                         objectName: "uomActivationResult"
                         width: parent.width

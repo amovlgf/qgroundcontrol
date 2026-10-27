@@ -44,14 +44,9 @@ QString responseSerial(const amov_device::Response& response)
 }  // namespace
 
 VehicleRidManager::VehicleRidManager(Vehicle* vehicle)
-    : VehicleRidManager(vehicle, QUrl(QStringLiteral("https://uom.amovlab.cn/api/v1/device/check-binding")))
-{}
-
-VehicleRidManager::VehicleRidManager(Vehicle* vehicle, const QUrl& platformEndpoint)
     : QObject(vehicle)
     , _vehicle(vehicle)
     , _transport(vehicle, this)
-    , _activation(platformEndpoint, this)
     , _parameters(this)
     , _status(tr("Read RID devices to begin"))
 {
@@ -61,33 +56,13 @@ VehicleRidManager::VehicleRidManager(Vehicle* vehicle, const QUrl& platformEndpo
         emit parametersChanged();
         emit changed();
     });
-    connect(&_activation, &RidActivationSyncController::failed, this, [this](const QString& detail) {
-        _platformState = detail;
-        _fail(detail);
-    });
-    connect(&_activation, &RidActivationSyncController::targetReady, this,
-            [this](quint64 generation, const QString& serial, bool active) {
-                if (generation != _generation || _stage != Stage::Platform) {
-                    return;
-                }
-                if (serial != _serial || !_writeAllowed()) {
-                    _fail(tr("Aircraft changed or was armed; activation was not written"));
-                    return;
-                }
-                _platformState = active ? tr("Activated") : tr("Not activated");
-                _targetActive = active;
-                _querySerial = serial;
-                auto request = _request(Operation::ACTIVATE);
-                request.value_length = 21;
-                request.value[0] = active ? 1 : 0;
-                std::memcpy(request.value + 1, serial.toLatin1().constData(), 20);
-                _stage = Stage::ActivationWrite;
-                _status = tr("Saving platform state to RID");
-                _send(request, true);
-            });
     connect(MultiVehicleManager::instance(), &MultiVehicleManager::activeVehicleChanged, this, [this](Vehicle* active) {
-        if (active != _vehicle && busy()) {
-            _fail(tr("Active aircraft changed; read RID before retrying"));
+        if (active != _vehicle) {
+            if (busy()) {
+                _fail(tr("Active aircraft changed; read RID before retrying"));
+            } else {
+                ++_generation;
+            }
         }
         emit changed();
     });
@@ -97,14 +72,22 @@ VehicleRidManager::VehicleRidManager(Vehicle* vehicle, const QUrl& platformEndpo
         connect(_vehicle->vehicleLinkManager(), &VehicleLinkManager::allLinksRemoved, this,
                 [this](Vehicle*) { _resetConnection(); });
         connect(_vehicle, &Vehicle::underwayChanged, this, [this](bool underway) {
-            if (underway && busy()) {
-                _fail(tr("Aircraft is underway; RID operation stopped. Read the current state before retrying"));
+            if (underway) {
+                if (busy()) {
+                    _fail(tr("Aircraft is underway; RID operation stopped. Read the current state before retrying"));
+                } else {
+                    ++_generation;
+                }
             }
             emit changed();
         });
         connect(_vehicle, &Vehicle::armedChanged, this, [this](bool armed) {
-            if (armed && busy()) {
-                _fail(tr("Aircraft armed; RID operation stopped. Read the current state before retrying"));
+            if (armed) {
+                if (busy()) {
+                    _fail(tr("Aircraft armed; RID operation stopped. Read the current state before retrying"));
+                } else {
+                    ++_generation;
+                }
             }
             emit changed();
         });
@@ -133,9 +116,59 @@ bool VehicleRidManager::canProvision() const
     return canWrite() && !locked() && _factoryProvisionAvailable && _serial.isEmpty() && _activationState == 0;
 }
 
+bool VehicleRidManager::validSerial(const QString& serial)
+{
+    if (serial.size() != 20) {
+        return false;
+    }
+    for (const QChar ch : serial) {
+        if (ch.unicode() < 33 || ch.unicode() > 126) {
+            return false;
+        }
+    }
+    return true;
+}
+
+RidActivationContext VehicleRidManager::activationContext() const
+{
+    return {_serial, uid(), _boot, _revision, _generation};
+}
+
+bool VehicleRidManager::readActivation(quint64 requestId)
+{
+    if (!requestId || !canWrite()) {
+        emit activationFailed(requestId, tr("Read RID devices while the aircraft is on the ground and disarmed"),
+                              false);
+        return false;
+    }
+    ++_generation;
+    _activationRequestId = requestId;
+    _activationMutationIssued = false;
+    _stage = Stage::ActivationRead;
+    _status = tr("Reading the current RID activation state");
+    return _send(_request(Operation::INFO));
+}
+
+bool VehicleRidManager::setActivation(quint64 requestId, const RidActivationContext& expected, bool active)
+{
+    if (!requestId || !canWrite() || !validSerial(expected.serial) || expected != activationContext()) {
+        emit activationFailed(requestId, tr("RID identity or aircraft state changed; read the device before retrying"),
+                              false);
+        return false;
+    }
+    ++_generation;
+    _activationRequestId = requestId;
+    _activationMutationIssued = false;
+    _activationExpected = expected;
+    _targetActive = active;
+    _stage = Stage::ActivationInfo;
+    _status = tr("Checking RID identity before changing activation");
+    return _send(_request(Operation::INFO));
+}
+
 QString VehicleRidManager::factoryIdentityError(const QString& serial, int aircraftClass) const
 {
-    if (!RidActivationProvider::validSerial(serial)) {
+    if (!validSerial(serial)) {
         return tr("Product code must contain exactly 20 printable ASCII characters without spaces");
     }
     if (aircraftClass < 0 || aircraftClass > 4) {
@@ -161,9 +194,12 @@ void VehicleRidManager::mavlinkMessageReceived(const mavlink_message_t& message)
 
 void VehicleRidManager::_resetConnection()
 {
+    const quint64 activationRequestId = _activationRequestId;
+    const bool activationUncertain = _activationMutationIssued;
+    _activationRequestId = 0;
+    _activationMutationIssued = false;
     ++_generation;
     _transport.reset();
-    _activation.cancel();
     _stage = Stage::Idle;
     _supported = false;
     _factoryProvisionSupported = _factoryProvisionAvailable = false;
@@ -176,7 +212,6 @@ void VehicleRidManager::_resetConnection()
     _serial.clear();
     _boot = _revision = 0;
     _activationState = 2;
-    _platformState = tr("Not queried");
     _parameters.clear();
     _parameterValue.fill('\0');
     _parameterValue.clear();
@@ -189,16 +224,22 @@ void VehicleRidManager::_resetConnection()
                        "transaction.")
                   : tr("Connection changed; read RID devices again");
     emit changed();
+    if (activationRequestId) {
+        emit activationFailed(activationRequestId, _status, activationUncertain);
+    }
 }
 
 void VehicleRidManager::_fail(const QString& message)
 {
+    const quint64 activationRequestId = _activationRequestId;
+    const bool activationUncertain = _activationMutationIssued;
+    _activationRequestId = 0;
+    _activationMutationIssued = false;
     const bool uncertainProvision = _provisionOutstanding &&
                                     (_stage == Stage::ProvisionWrite || _stage == Stage::ProvisionVerify ||
                                      _stage == Stage::ProvisionClassVerify || _stage == Stage::ProvisionRevisionVerify);
     ++_generation;
     _transport.reset();
-    _activation.cancel();
     _stage = Stage::Idle;
     _recoveringMaintenance = false;
     _parameterValue.fill('\0');
@@ -212,6 +253,9 @@ void VehicleRidManager::_fail(const QString& message)
                         .arg(message)
                   : message;
     emit changed();
+    if (activationRequestId) {
+        emit activationFailed(activationRequestId, message, activationUncertain);
+    }
 }
 
 void VehicleRidManager::_finish(const QString& message)
@@ -262,10 +306,16 @@ bool VehicleRidManager::_send(amov_device::Request request, bool mutation)
                 _uid, {_provisionRequest, _provisionDigest, _provisionSerial, _provisionClass});
         }
     }
+    if (mutation && _stage == Stage::ActivationWrite && _activationRequestId) {
+        _activationMutationIssued = true;
+    }
     const bool sent = _transport.send(1, _node, QByteArray(reinterpret_cast<const char*>(bytes), sizeof(bytes)));
     std::memset(bytes, 0, sizeof(bytes));
     std::memset(request.value, 0, sizeof(request.value));
     if (!sent) {
+        if (mutation && _stage == Stage::ActivationWrite) {
+            _activationMutationIssued = false;
+        }
         if (mutation && _stage == Stage::ProvisionWrite) {
             _clearProvisionReceipt();
         }
@@ -282,7 +332,6 @@ void VehicleRidManager::refresh()
         return;
     }
     ++_generation;
-    _activation.cancel();
     _transport.reset();
     _supported = false;
     _devices.clear();
@@ -301,7 +350,7 @@ bool VehicleRidManager::_validInfo(const amov_device::Response& response)
 {
     return response.operation == Operation::INFO && response.result == Result::OK && response.boot &&
            responseUid(response) != QByteArray(6, '\0') && response.total > 0 && response.total <= 128 &&
-           (response.value_length == 0 || RidActivationProvider::validSerial(responseSerial(response)));
+           (response.value_length == 0 || validSerial(responseSerial(response)));
 }
 
 void VehicleRidManager::_probeFailed(const QString& reason)
@@ -381,7 +430,6 @@ void VehicleRidManager::selectDevice(int index)
     if (!busy() && index >= 0 && index < _devices.size()) {
         ++_generation;
         _transport.reset();
-        _activation.cancel();
         _select(index);
     }
 }
@@ -408,9 +456,6 @@ void VehicleRidManager::_select(int index)
 
 void VehicleRidManager::_applyInfo(const amov_device::Response& response)
 {
-    if (_uid != responseUid(response)) {
-        _platformState = tr("Not queried");
-    }
     _uid = responseUid(response);
     const auto receipt = pendingFactoryProvisions.constFind(_uid);
     _provisionOutstanding = receipt != pendingFactoryProvisions.cend();
@@ -457,18 +502,6 @@ void VehicleRidManager::_readMetadata()
     auto request = _request(Operation::METADATA);
     request.index = _metadataIndex;
     _send(request);
-}
-
-void VehicleRidManager::syncActivation()
-{
-    if (!canWrite()) {
-        return;
-    }
-    ++_generation;
-    _platformState = tr("Querying");
-    _stage = Stage::SyncInfo;
-    _status = tr("Reading aircraft product code");
-    _send(_request(Operation::INFO));
 }
 
 void VehicleRidManager::provisionFactoryIdentity(const QString& expectedUid, const QString& serial, int aircraftClass)
@@ -668,8 +701,9 @@ void VehicleRidManager::_receive(quint8 operation, quint8, const QByteArray& pay
         }
         ++_metadataIndex;
         _readMetadata();
-    } else if (_stage == Stage::SyncInfo || _stage == Stage::ParameterInfo || _stage == Stage::ActivationVerify ||
-               _stage == Stage::ProvisionInfo || _stage == Stage::ProvisionVerify) {
+    } else if (_stage == Stage::ActivationRead || _stage == Stage::ActivationInfo || _stage == Stage::ParameterInfo ||
+               _stage == Stage::ActivationVerify || _stage == Stage::ProvisionInfo ||
+               _stage == Stage::ProvisionVerify) {
         if (!_validInfo(response)) {
             _fail(tr("Invalid RID identity response"));
             return;
@@ -686,12 +720,27 @@ void VehicleRidManager::_receive(quint8 operation, quint8, const QByteArray& pay
                 _send(request);
             }
         } else if (_stage == Stage::ActivationVerify) {
-            if (_serial != _querySerial || _activationState != (_targetActive ? 1 : 0)) {
-                _fail(tr("RID activation readback differs from the platform result"));
+            if (_serial != _activationExpected.serial || _activationState != (_targetActive ? 1 : 0)) {
+                _fail(tr("RID activation readback differs from the requested state"));
             } else {
-                _finish(_targetActive ? tr("Synchronization complete — RID activated")
-                                      : tr("Synchronization complete — RID not activated"));
+                const quint64 requestId = _activationRequestId;
+                const auto context = activationContext();
+                const int state = _activationState;
+                _activationRequestId = 0;
+                _activationMutationIssued = false;
+                _finish(_targetActive ? tr("RID activation saved and verified")
+                                      : tr("RID deactivation saved and verified"));
+                if (requestId) {
+                    emit activationWritten(requestId, context, state);
+                }
             }
+        } else if (_stage == Stage::ActivationRead) {
+            const quint64 requestId = _activationRequestId;
+            const auto context = activationContext();
+            const int state = _activationState;
+            _activationRequestId = 0;
+            _finish(tr("RID activation state read"));
+            emit activationRead(requestId, context, state);
         } else if (!_writeAllowed()) {
             _fail(tr("Aircraft must remain disarmed during RID changes"));
         } else if (_stage == Stage::ProvisionInfo) {
@@ -707,11 +756,19 @@ void VehicleRidManager::_receive(quint8 operation, quint8, const QByteArray& pay
             _stage = Stage::ProvisionWrite;
             _status = tr("Saving factory identity to RID");
             _send(request, true);
-        } else if (_stage == Stage::SyncInfo) {
-            _stage = Stage::Platform;
-            _status = tr("Querying platform activation state");
-            emit changed();
-            _activation.begin(_generation, _serial);
+        } else if (_stage == Stage::ActivationInfo) {
+            if (_serial != _activationExpected.serial || uid() != _activationExpected.uid ||
+                _boot != _activationExpected.boot || _revision != _activationExpected.revision) {
+                _fail(tr("RID identity changed before activation; read the device before retrying"));
+                return;
+            }
+            auto request = _request(Operation::ACTIVATE);
+            request.value_length = 21;
+            request.value[0] = _targetActive ? 1 : 0;
+            std::memcpy(request.value + 1, _serial.toLatin1().constData(), 20);
+            _stage = Stage::ActivationWrite;
+            _status = tr("Saving RID activation state");
+            _send(request, true);
         } else {
             auto* entry = _parameters.find(_parameterName);
             if (!entry) {
@@ -749,8 +806,7 @@ void VehicleRidManager::_receive(quint8 operation, quint8, const QByteArray& pay
             _send(request);
         } else {
             _clearProvisionReceipt();
-            _platformState = tr("Not queried");
-            _completionText = tr("Factory identity saved and verified. Synchronize platform activation next.");
+            _completionText = tr("Factory identity saved and verified. Continue with UOM registration and activation.");
             _enumerate();
         }
     } else if (_stage == Stage::ParameterVerify) {
