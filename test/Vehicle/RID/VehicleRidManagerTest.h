@@ -17,6 +17,10 @@ private slots:
     void _activationOutcomeFailure();
     void _activationConcurrentRequestIsolation();
     void _identityAndSessionIsolation();
+    void _identityInvalidationRequiresRefresh_data();
+    void _identityInvalidationRequiresRefresh();
+    void _identityClearedBeforeDisconnect();
+    void _customerProfileUsesConnectedIdentity();
     void _maintenanceAndGroundRestriction();
     void _parameterValueBoundaries();
     void _credentialRequestsAreNotLogged();

@@ -8,4 +8,8 @@ class RidManagementUITest : public VehicleConfigUITestBase
 private slots:
     void _setupAndToolbarRoutes();
     void _uomConfigurationAndCancellation();
+    void _uomCustomerProfile_data();
+    void _uomCustomerProfile();
+    void _ridDialogIdentityInvalidation_data();
+    void _ridDialogIdentityInvalidation();
 };

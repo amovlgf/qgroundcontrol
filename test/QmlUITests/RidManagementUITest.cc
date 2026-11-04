@@ -1,5 +1,6 @@
 #include "RidManagementUITest.h"
 
+#include <functional>
 #include <memory>
 
 #include <QtQml/QQmlApplicationEngine>
@@ -59,7 +60,9 @@ void RidManagementUITest::_uomConfigurationAndCancellation()
             component.setData(R"qml(
             import QtQml
             QtObject {
-                property string productModel: "B950"
+                signal identityInvalidated()
+                property bool customerProfile: false
+                property string productModel: ""
                 property string environment: "integration"
                 property string producerId: "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
                 property string expectedSerial: "ALABB950B950U4400001"
@@ -74,6 +77,11 @@ void RidManagementUITest::_uomConfigurationAndCancellation()
                 property string lastVerifiedAt: "2026-10-27T10:00:00Z"
                 property string lastReportedAt: ""
                 property string statusText: "Ready"
+                property string operationBlockReason: ""
+                property string pendingOperation: "deactivate"
+                property string operationStage: "verifying"
+                property int cooldownRemainingSeconds: 0
+                property bool automaticContinuation: false
                 property string credentialStatus: "Session-only credentials"
                 property string safetyStatus: "Read-only safety status"
                 property bool pending: false
@@ -81,7 +89,7 @@ void RidManagementUITest::_uomConfigurationAndCancellation()
                 property bool canVerify: !pending
                 property bool canActivate: !pending
                 property bool canDeactivate: !pending
-                property bool canRetry: pending
+                property bool canRetry: pending && cooldownRemainingSeconds === 0
                 property int cancellationCount: 0
                 property string cancellationType: ""
                 property string cancellationReason: ""
@@ -127,7 +135,9 @@ void RidManagementUITest::_uomConfigurationAndCancellation()
                                QStringLiteral("https://uom.caac.gov.cn/official/verify"),
                                QStringLiteral("load official endpoint")));
             QVERIFY(firstKeyInput->property("text").toString().isEmpty());
-            QVERIFY(rejectDialog());
+            QVERIFY(QMetaObject::invokeMethod(manager.get(), "identityInvalidated"));
+            QTRY_VERIFY_WITH_TIMEOUT(!dialogVisible(QStringLiteral("Configure UOM connection")),
+                                     TestTimeout::shortMs());
 
             QVERIFY(manager->setProperty("pending", true));
             QVERIFY(
@@ -159,7 +169,7 @@ void RidManagementUITest::_uomConfigurationAndCancellation()
             QVERIFY(keyInput->property("text").toString().isEmpty());
             QVERIFY(rejectDialog());
             QVERIFY(clickButtonScrolled(QStringLiteral("uomRetryButton"), QStringLiteral("ridManagementFlickable")));
-            QVERIFY(waitForDialog(QStringLiteral("Retry pending operation")));
+            QVERIFY(waitForDialog(QStringLiteral("Continue deregistration")));
             QVERIFY(manager->setProperty("uid", QStringLiteral("replacement-rid-uid")));
             QVERIFY(verifyEnabled(QStringLiteral("popupDialog_acceptButton"), false,
                                   QStringLiteral("retry remains bound to the original RID")));
@@ -210,5 +220,221 @@ void RidManagementUITest::_uomConfigurationAndCancellation()
             }
             QVERIFY(panel->setProperty("manager", QVariant::fromValue<QObject*>(nullptr)));
             QVERIFY(panel->setProperty("ridManager", QVariant::fromValue<QObject*>(nullptr)));
+        });
+}
+
+void RidManagementUITest::_uomCustomerProfile_data()
+{
+    QTest::addColumn<QString>("buttonName");
+    QTest::addColumn<QString>("dialogTitle");
+    QTest::addColumn<bool>("pending");
+    QTest::newRow("activation") << QStringLiteral("uomActivateButton") << QStringLiteral("Activate aircraft") << false;
+    QTest::newRow("cancellation") << QStringLiteral("uomDeactivateButton")
+                                  << QStringLiteral("Deactivate and cancel registration") << false;
+    QTest::newRow("retry") << QStringLiteral("uomRetryButton") << QStringLiteral("Continue deregistration") << true;
+}
+
+void RidManagementUITest::_uomCustomerProfile()
+{
+    QFETCH(QString, buttonName);
+    QFETCH(QString, dialogTitle);
+    QFETCH(bool, pending);
+    runWithMockLink(
+        [] { return MockLink::startPX4MockLink(); },
+        [&](QPointer<MockLink>, Vehicle*) {
+            navigateToConfigureView();
+            if (QTest::currentTestFailed()) {
+                return;
+            }
+            QVERIFY(clickSidebarButton(QStringLiteral("vehicleConfig_ridButton")));
+            auto* panel = findItem(_rootItem, QStringLiteral("uomRegistrationPanel"));
+            QVERIFY(panel);
+
+            QQmlComponent component(_engine);
+            component.setData(R"qml(
+            import QtQml
+            QtObject {
+                signal identityInvalidated()
+                property bool customerProfile: true
+                property string productModel: ""
+                property string environment: "official"
+                property string serial: "ALABB950B950U4400001"
+                property string uid: "test-rid-uid"
+                property string registrationText: "Registered"
+                property string deviceActivationText: "Device not activated"
+                property string reportText: "No acknowledgement"
+                property string lastVerifiedAt: "2026-10-27T10:00:00Z"
+                property string lastReportedAt: ""
+                property string statusText: "Ready"
+                property string operationBlockReason: ""
+                property string pendingOperation: "deactivate"
+                property string operationStage: "verifying"
+                property int cooldownRemainingSeconds: 0
+                property bool automaticContinuation: false
+                property string credentialStatus: "Session-only credentials"
+                property string safetyStatus: "Read-only safety status"
+                property bool pending: false
+                property bool canConfigure: true
+                property bool canVerify: !pending
+                property bool canActivate: !pending
+                property bool canDeactivate: !pending
+                property bool canRetry: pending && cooldownRemainingSeconds === 0
+                property int operationCount: 0
+                function activate() { operationCount++ }
+                function deactivateAndCancel(type, reason) { operationCount++ }
+                function retryPending() { operationCount++ }
+            }
+        )qml",
+                              QUrl());
+            QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+            std::unique_ptr<QObject> manager(component.create());
+            QVERIFY(manager);
+            QVERIFY(manager->setProperty("pending", pending));
+            QVERIFY(panel->setProperty("manager", QVariant::fromValue(manager.get())));
+            QVERIFY(panel->setProperty("ridManager", QVariant::fromValue(manager.get())));
+            for (const auto* name : {"uomConfigureButton", "uomCurrentEnvironment", "uomCredentialStatus"}) {
+                const auto* item = findItem(_rootItem, QString::fromLatin1(name));
+                QVERIFY(item);
+                QVERIFY(!item->isVisible());
+            }
+            const auto* configure = findItem(_rootItem, QStringLiteral("uomConfigureButton"));
+            QVERIFY(configure);
+            QVERIFY(!configure->isEnabled());
+            QCOMPARE(findItem(_rootItem, QStringLiteral("uomConnectedSerial"))->property("text").toString(),
+                     manager->property("serial").toString());
+
+            QVERIFY(!findItem(_rootItem, QStringLiteral("uomOpenWebsiteButton")));
+            QCOMPARE(findItem(_rootItem, QStringLiteral("uomProductModel"))->property("text").toString(),
+                     QStringLiteral("Unknown"));
+            if (pending) {
+                QVERIFY(manager->setProperty("pendingOperation", QStringLiteral("activate")));
+                QVERIFY(manager->setProperty("cooldownRemainingSeconds", 37));
+                QVERIFY(manager->setProperty("automaticContinuation", true));
+                auto* retry = findItem(_rootItem, QStringLiteral("uomRetryButton"));
+                QVERIFY(retry);
+                QVERIFY(!retry->isEnabled());
+                QCOMPARE(retry->property("text").toString(), QStringLiteral("Waiting to continue activation"));
+                auto* cooldown = findItem(_rootItem, QStringLiteral("uomCooldownStatus"));
+                QVERIFY(cooldown && cooldown->isVisible());
+                QVERIFY(cooldown->property("text").toString().contains(QStringLiteral("37")));
+                QVERIFY(manager->setProperty("automaticContinuation", false));
+                QCOMPARE(retry->property("text").toString(), QStringLiteral("Continue activation"));
+                QVERIFY(!retry->isEnabled());
+                QVERIFY(manager->setProperty("cooldownRemainingSeconds", 0));
+                QVERIFY(retry->isEnabled());
+                QVERIFY(manager->setProperty("pendingOperation", QStringLiteral("deactivate")));
+            }
+
+            QVERIFY(clickButtonScrolled(buttonName, QStringLiteral("ridManagementFlickable")));
+            QVERIFY(waitForDialog(dialogTitle));
+            QVERIFY(QMetaObject::invokeMethod(manager.get(), "identityInvalidated"));
+            QTRY_VERIFY_WITH_TIMEOUT(!dialogVisible(dialogTitle), TestTimeout::shortMs());
+            QCOMPARE(manager->property("operationCount").toInt(), 0);
+            QVERIFY(panel->setProperty("manager", QVariant::fromValue<QObject*>(nullptr)));
+            QVERIFY(panel->setProperty("ridManager", QVariant::fromValue<QObject*>(nullptr)));
+        });
+}
+
+void RidManagementUITest::_ridDialogIdentityInvalidation_data()
+{
+    QTest::addColumn<QString>("buttonText");
+    QTest::addColumn<QString>("dialogTitle");
+    QTest::newRow("factory-identity") << QStringLiteral("Provision factory identity")
+                                      << QStringLiteral("Provision factory identity");
+    QTest::newRow("parameter") << QStringLiteral("Edit") << QStringLiteral("RID_RATE");
+    QTest::newRow("restart") << QStringLiteral("Restart RID") << QStringLiteral("Restart RID");
+    QTest::newRow("defaults") << QStringLiteral("Restore RID defaults") << QStringLiteral("Restore RID defaults");
+}
+
+void RidManagementUITest::_ridDialogIdentityInvalidation()
+{
+    QFETCH(QString, buttonText);
+    QFETCH(QString, dialogTitle);
+    runWithMockLink(
+        [] { return MockLink::startPX4MockLink(); },
+        [&](QPointer<MockLink>, Vehicle* vehicle) {
+            navigateToConfigureView();
+            if (QTest::currentTestFailed()) {
+                return;
+            }
+            QVERIFY(clickSidebarButton(QStringLiteral("vehicleConfig_ridButton")));
+            auto* page = findItem(_rootItem, QStringLiteral("ridManagementPage"));
+            QVERIFY(page);
+            QQmlComponent component(_engine);
+            component.setData(R"qml(
+            import QtQml
+            QtObject {
+                id: fakeVehicle
+                signal identityInvalidated()
+                property var ridManager: fakeVehicle
+                property var uomRegistrationManager: null
+                property string statusText: "Ready"
+                property bool available: true
+                property bool busy: false
+                property var devices: []
+                property int selectedDevice: -1
+                property bool supported: true
+                property string serial: ""
+                property string uid: "test-rid-uid"
+                property int nodeId: 125
+                property int activationState: 0
+                property bool factoryProvisionSupported: true
+                property bool canProvision: true
+                property bool canWrite: true
+                property bool locked: false
+                property QtObject parameterFact: QtObject {
+                    property string name: "RID_RATE"
+                    property string valueString: "1"
+                }
+                property var parameters: [{ fact: parameterFact, masked: false, writable: true,
+                                             action: false, unused: false, rebootRequired: false }]
+                property int operationCount: 0
+                function factoryIdentityError(serial, aircraftClass) { return "" }
+                function provisionFactoryIdentity(uid, serial, aircraftClass) { operationCount++ }
+                function writeParameter(name, value) { operationCount++ }
+                function reboot() { operationCount++ }
+                function resetDefaults() { operationCount++ }
+            }
+        )qml",
+                              QUrl());
+            QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+            std::unique_ptr<QObject> manager(component.create());
+            QVERIFY(manager);
+            QVERIFY(page->setProperty("vehicle", QVariant::fromValue(manager.get())));
+            const std::function<QQuickItem*(QQuickItem*)> findAction = [&](QQuickItem* item) -> QQuickItem* {
+                if (item->property("text").toString() == buttonText &&
+                    item->metaObject()->indexOfSignal("clicked()") >= 0) {
+                    return item;
+                }
+                for (auto* child : item->childItems()) {
+                    if (auto* action = findAction(child)) {
+                        return action;
+                    }
+                }
+                return nullptr;
+            };
+            QQuickItem* action = nullptr;
+            QTRY_VERIFY_WITH_TIMEOUT((action = findAction(page)), TestTimeout::shortMs());
+            action->setObjectName(QStringLiteral("ridTestAction"));
+            QVERIFY(clickButtonScrolled(QStringLiteral("ridTestAction"), QStringLiteral("ridManagementFlickable")));
+            QVERIFY(waitForDialog(dialogTitle));
+            if (buttonText == QStringLiteral("Provision factory identity")) {
+                auto* aircraftClass = findItem(_rootItem, QStringLiteral("ridFactoryClassInput"));
+                auto* confirmed = findItem(_rootItem, QStringLiteral("ridFactoryBindingConfirmed"));
+                QVERIFY(aircraftClass && confirmed);
+                QCOMPARE(aircraftClass->property("currentIndex").toInt(), -1);
+                QCOMPARE(aircraftClass->property("alternateText").toString(), QStringLiteral("Select aircraft class"));
+                QVERIFY(confirmed->setProperty("checked", true));
+                QVERIFY(verifyEnabled(QStringLiteral("popupDialog_acceptButton"), false,
+                                      QStringLiteral("aircraft class is required")));
+                QVERIFY(aircraftClass->setProperty("currentIndex", 1));
+                QCOMPARE(aircraftClass->property("currentText").toString(), QStringLiteral("Light"));
+                QVERIFY(verifyEnabled(QStringLiteral("popupDialog_acceptButton"), true,
+                                      QStringLiteral("aircraft class selected")));
+            }
+            QVERIFY(QMetaObject::invokeMethod(manager.get(), "identityInvalidated"));
+            QTRY_VERIFY_WITH_TIMEOUT(!dialogVisible(dialogTitle), TestTimeout::shortMs());
+            QCOMPARE(manager->property("operationCount").toInt(), 0);
+            QVERIFY(page->setProperty("vehicle", QVariant::fromValue(vehicle)));
         });
 }

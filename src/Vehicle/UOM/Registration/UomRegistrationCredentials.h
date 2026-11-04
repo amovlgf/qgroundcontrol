@@ -13,6 +13,7 @@ public:
     explicit UomRegistrationCredentials(QObject* parent = nullptr, bool memoryOnly = false);
     ~UomRegistrationCredentials() override;
     void put(const QString& reference, const QString& value);
+    void putSession(const QString& reference, const QString& value);
     void get(const QString& reference);
     void remove(const QString& reference);
 

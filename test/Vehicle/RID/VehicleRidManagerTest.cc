@@ -9,13 +9,18 @@
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QFile>
 #include <QtCore/QScopeGuard>
+#include <QtCore/QSettings>
 #include <QtCore/QTemporaryFile>
 #include <QtCore/QTimer>
 
 #include "MAVLinkLib.h"
 #include "MAVLinkProtocol.h"
+#include "MultiVehicleManager.h"
+#include "UomRegistrationProfile.h"
 #include "Vehicle.h"
+#include "VehicleLinkManager.h"
 #include "VehicleRidManager.h"
+#include "VehicleUomRegistrationManager.h"
 
 UT_REGISTER_TEST(VehicleRidManagerTest, TestLabel::Integration)
 
@@ -569,6 +574,201 @@ void VehicleRidManagerTest::_identityAndSessionIsolation()
     QVERIFY(!manager->_verifyDefaults);
 }
 
+void VehicleRidManagerTest::_identityInvalidationRequiresRefresh_data()
+{
+    QTest::addColumn<bool>("switchVehicle");
+    QTest::addColumn<bool>("reading");
+    QTest::newRow("switch-idle") << true << false;
+    QTest::newRow("switch-reading") << true << true;
+    QTest::newRow("disconnect-idle") << false << false;
+    QTest::newRow("disconnect-reading") << false << true;
+}
+
+void VehicleRidManagerTest::_identityInvalidationRequiresRefresh()
+{
+    QFETCH(bool, switchVehicle);
+    QFETCH(bool, reading);
+    RidPeer peer(mockLink(), vehicle());
+    peer.active = 1;
+    auto* manager = vehicle()->ridManager();
+    auto* vehicles = MultiVehicleManager::instance();
+    const auto restoreConnection = qScopeGuard([&]() {
+        simulateCommLoss(false);
+        vehicles->setActiveVehicle(vehicle());
+    });
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    const QString originalUid = manager->uid();
+    QSignalSpy invalidated(manager, &VehicleRidManager::identityInvalidated);
+    QSignalSpy read(manager, &VehicleRidManager::activationRead);
+    QSignalSpy failed(manager, &VehicleRidManager::activationFailed);
+    if (reading) {
+        peer.holdResponses = true;
+        QVERIFY(manager->readActivation(201));
+        QTRY_COMPARE_WITH_TIMEOUT(peer.heldResponses.size(), 1, TestTimeout::mediumMs());
+    }
+    if (switchVehicle) {
+        vehicles->setActiveVehicle(nullptr);
+        QTRY_VERIFY_WITH_TIMEOUT(!vehicles->activeVehicle(), TestTimeout::mediumMs());
+    } else {
+        simulateCommLoss(true);
+        QTRY_VERIFY_WITH_TIMEOUT(vehicle()->vehicleLinkManager()->communicationLost(),
+                                 VehicleLinkManager::kTestCommLostDetectionTimeoutMs);
+    }
+    QCOMPARE(invalidated.count(), 1);
+    QVERIFY(manager->serial().isEmpty());
+    QVERIFY(manager->uid().isEmpty());
+    QCOMPARE(manager->nodeId(), 0);
+    QCOMPARE(manager->activationState(), 2);
+    QVERIFY(manager->devices().isEmpty());
+    QVERIFY(manager->parameters().isEmpty());
+    QVERIFY(!manager->supported());
+    QVERIFY(!manager->busy());
+    QVERIFY(!manager->canWrite());
+    QCOMPARE(failed.count(), reading ? 1 : 0);
+
+    if (switchVehicle) {
+        vehicles->setActiveVehicle(vehicle());
+        QTRY_COMPARE_WITH_TIMEOUT(vehicles->activeVehicle(), vehicle(), TestTimeout::mediumMs());
+    } else {
+        simulateCommLoss(false);
+        QTRY_VERIFY_WITH_TIMEOUT(!vehicle()->vehicleLinkManager()->communicationLost(), TestTimeout::mediumMs());
+    }
+    for (const auto& response : peer.heldResponses) {
+        manager->mavlinkMessageReceived(response);
+    }
+    peer.heldResponses.clear();
+    peer.holdResponses = false;
+    QCOMPARE(invalidated.count(), 1);
+    QCOMPARE(read.count(), 0);
+    QVERIFY(manager->serial().isEmpty());
+    QVERIFY(manager->uid().isEmpty());
+    QCOMPARE(manager->activationState(), 2);
+    QVERIFY(!manager->canWrite());
+
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    QCOMPARE(manager->serial().toLatin1(), serial);
+    QCOMPARE(manager->uid(), originalUid);
+    QCOMPARE(manager->activationState(), 1);
+    QVERIFY(manager->canWrite());
+    QCOMPARE(invalidated.count(), 1);
+    QCOMPARE(peer.mutations, 0);
+    QCOMPARE(peer.error, QString());
+}
+
+void VehicleRidManagerTest::_identityClearedBeforeDisconnect()
+{
+    RidPeer peer(mockLink(), vehicle());
+    auto* manager = vehicle()->ridManager();
+    manager->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(manager->supported() && !manager->busy(), TestTimeout::mediumMs());
+    QSignalSpy invalidated(manager, &VehicleRidManager::identityInvalidated);
+    bool identityCleared = false;
+    const auto connection = connect(vehicle()->vehicleLinkManager(), &VehicleLinkManager::allLinksRemoved, this, [&]() {
+        identityCleared = manager->serial().isEmpty() && manager->uid().isEmpty() && manager->activationState() == 2 &&
+                          !manager->canWrite();
+    });
+    _disconnectMockLink();
+    disconnect(connection);
+    QVERIFY(identityCleared);
+    QVERIFY(!invalidated.isEmpty());
+    QCOMPARE(peer.error, QString());
+}
+
+void VehicleRidManagerTest::_customerProfileUsesConnectedIdentity()
+{
+    if (!UomRegistrationProfile::customerBuild()) {
+        QSKIP("Requires a B950 customer build");
+    }
+    QSettings settings;
+    settings.beginGroup(QStringLiteral("UomRegistration"));
+    const QVariantMap legacySettings{
+        {"environment", "integration"},
+        {"integration/producerId", "00000000-0000-0000-0000-000000000000"},
+        {"integration/expectedSerial", "ALABB950B950U4400009"},
+        {"integration/verifyUrl", "https://uom.caac.gov.cn/legacy-verify"},
+        {"integration/reportUrl", "https://uom.caac.gov.cn/legacy-report"},
+        {"integration/cancelUrl", "https://uom.caac.gov.cn/legacy-cancel"},
+    };
+    QVariantMap previousSettings;
+    for (auto it = legacySettings.cbegin(); it != legacySettings.cend(); ++it) {
+        if (settings.contains(it.key())) {
+            previousSettings.insert(it.key(), settings.value(it.key()));
+        }
+        settings.setValue(it.key(), it.value());
+    }
+    const auto restoreSettings = qScopeGuard([&]() {
+        for (auto it = legacySettings.cbegin(); it != legacySettings.cend(); ++it) {
+            if (previousSettings.contains(it.key())) {
+                settings.setValue(it.key(), previousSettings.value(it.key()));
+            } else {
+                settings.remove(it.key());
+            }
+        }
+    });
+    RidPeer peer(mockLink(), vehicle());
+    auto* rid = vehicle()->ridManager();
+    auto* vehicles = MultiVehicleManager::instance();
+    const auto restoreActiveVehicle = qScopeGuard([&]() { vehicles->setActiveVehicle(vehicle()); });
+    VehicleUomRegistrationManager registration(vehicle());
+    QTRY_VERIFY_WITH_TIMEOUT(registration.configured(), TestTimeout::mediumMs());
+    QVERIFY(registration.customerProfile());
+    QVERIFY(!registration.canVerify());
+    QVERIFY(registration.productModel().isEmpty());
+    QVERIFY(registration.operationBlockReason().contains(QStringLiteral("not been read")));
+    QVERIFY(!registration.canConfigure());
+    QVERIFY(registration.environment().isEmpty());
+    QVERIFY(registration.producerId().isEmpty());
+    QVERIFY(registration.expectedSerial().isEmpty());
+    QVERIFY(registration.verifyUrl().isEmpty());
+    QVERIFY(registration.reportUrl().isEmpty());
+    QVERIFY(registration.cancelUrl().isEmpty());
+    QVERIFY(registration.credentialStatus().isEmpty());
+    QVERIFY(registration.configurationForEnvironment(QStringLiteral("integration")).isEmpty());
+    QVERIFY(registration.configurationForEnvironment(QStringLiteral("official")).isEmpty());
+    QVERIFY(!registration.configure(QStringLiteral("integration"),
+                                    legacySettings.value("integration/producerId").toString(),
+                                    legacySettings.value("integration/expectedSerial").toString(),
+                                    legacySettings.value("integration/verifyUrl").toString(),
+                                    legacySettings.value("integration/reportUrl").toString(),
+                                    legacySettings.value("integration/cancelUrl").toString(), {}));
+
+    peer.deviceSerial.clear();
+    rid->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(rid->supported() && !rid->busy(), TestTimeout::mediumMs());
+    QVERIFY(!registration.canVerify());
+    QVERIFY(registration.statusText().contains(QStringLiteral("SN is not bound")));
+    QVERIFY(!registration.statusText().contains(QStringLiteral("Waiting to read")));
+    peer.deviceSerial = serial;
+    rid->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(registration.canVerify(), TestTimeout::mediumMs());
+    QCOMPARE(rid->serial().toLatin1(), serial);
+    QVERIFY(registration.operationBlockReason().isEmpty());
+    mockLink()->setArmed(true);
+    QTRY_VERIFY_WITH_TIMEOUT(vehicle()->armed(), TestTimeout::mediumMs());
+    QVERIFY(!registration.canActivate());
+    QVERIFY(registration.operationBlockReason().contains(QStringLiteral("Land and disarm")));
+    mockLink()->setArmed(false);
+    QTRY_VERIFY_WITH_TIMEOUT(!vehicle()->armed(), TestTimeout::mediumMs());
+    vehicles->setActiveVehicle(nullptr);
+    QTRY_VERIFY_WITH_TIMEOUT(!vehicles->activeVehicle(), TestTimeout::mediumMs());
+    QVERIFY(!registration.canVerify());
+    QCOMPARE(registration.deviceActivationText(), QStringLiteral("Unknown; read RID"));
+    vehicles->setActiveVehicle(vehicle());
+    QTRY_COMPARE_WITH_TIMEOUT(vehicles->activeVehicle(), vehicle(), TestTimeout::mediumMs());
+    QVERIFY(!registration.canVerify());
+    peer.deviceSerial = QByteArray("ALABB950B950U4400002");
+    rid->refresh();
+    QTRY_VERIFY_WITH_TIMEOUT(registration.canVerify(), TestTimeout::mediumMs());
+    QCOMPARE(rid->serial().toLatin1(), peer.deviceSerial);
+    QCOMPARE(registration.registrationText(), QStringLiteral("Not verified"));
+    QVERIFY(registration.lastVerifiedAt().isEmpty());
+    QVERIFY(registration.lastReportedAt().isEmpty());
+    QCOMPARE(peer.mutations, 0);
+    QCOMPARE(peer.error, QString());
+}
+
 void VehicleRidManagerTest::_maintenanceAndGroundRestriction()
 {
     RidPeer peer(mockLink(), vehicle());
@@ -722,6 +922,7 @@ void VehicleRidManagerTest::_factoryProvisionRoundTrip_data()
     QTest::newRow("direct") << QStringLiteral("direct");
     QTest::newRow("lost-receipt") << QStringLiteral("lost-receipt");
     QTest::newRow("connection-reset") << QStringLiteral("connection-reset");
+    QTest::newRow("active-switch") << QStringLiteral("active-switch");
 }
 
 void VehicleRidManagerTest::_factoryProvisionRoundTrip()
@@ -732,6 +933,8 @@ void VehicleRidManagerTest::_factoryProvisionRoundTrip()
     peer.provisioningSupported = true;
     peer.revision = 0;
     auto* manager = vehicle()->ridManager();
+    auto* vehicles = MultiVehicleManager::instance();
+    const auto restoreActiveVehicle = qScopeGuard([&]() { vehicles->setActiveVehicle(vehicle()); });
     manager->refresh();
     QTRY_VERIFY_WITH_TIMEOUT(manager->canProvision(), TestTimeout::mediumMs());
     const QString targetUid = manager->uid();
@@ -740,14 +943,25 @@ void VehicleRidManagerTest::_factoryProvisionRoundTrip()
         peer.statusTransportBusyCount = 2;
     } else if (mode == QStringLiteral("connection-reset")) {
         peer.afterMutation = [manager]() { manager->_resetConnection(); };
+    } else if (mode == QStringLiteral("active-switch")) {
+        peer.afterMutation = [&peer, vehicles]() {
+            peer.holdResponses = true;
+            vehicles->setActiveVehicle(nullptr);
+        };
     }
     manager->provisionFactoryIdentity(targetUid, QString::fromLatin1(serial), 2);
-    if (mode == QStringLiteral("connection-reset")) {
+    if (mode == QStringLiteral("connection-reset") || mode == QStringLiteral("active-switch")) {
         QTRY_VERIFY_WITH_TIMEOUT(!manager->busy(), TestTimeout::mediumMs());
         QVERIFY(manager->statusText().contains("outcome is unknown"));
         QVERIFY(!manager->canProvision());
         QVERIFY(!manager->canWrite());
         peer.afterMutation = {};
+        if (mode == QStringLiteral("active-switch")) {
+            QVERIFY(!vehicles->activeVehicle());
+            vehicles->setActiveVehicle(vehicle());
+            QTRY_COMPARE_WITH_TIMEOUT(vehicles->activeVehicle(), vehicle(), TestTimeout::mediumMs());
+            peer.releaseResponses();
+        }
         manager->refresh();
     }
     QTRY_VERIFY_WITH_TIMEOUT(!manager->busy(), TestTimeout::mediumMs());

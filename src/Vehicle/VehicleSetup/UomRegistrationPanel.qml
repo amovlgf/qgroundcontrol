@@ -31,7 +31,7 @@ ColumnLayout {
 
     QGCLabel {
         Layout.fillWidth: true
-        text: qsTr("Complete real-name registration and activation before first use. Registration is completed on the official UOM website.")
+        text: qsTr("Check real-name registration and activate the connected aircraft in QGC. Valid real-name registration is required for activation.")
         wrapMode: Text.WordWrap
     }
 
@@ -45,7 +45,8 @@ ColumnLayout {
         }
 
         QGCLabel {
-            text: root.manager ? root.manager.productModel : "—"
+            objectName: "uomProductModel"
+            text: root.manager && root.manager.productModel.length ? root.manager.productModel : qsTr("Unknown")
         }
 
         QGCLabel {
@@ -62,11 +63,13 @@ ColumnLayout {
 
         QGCLabel {
             text: qsTr("Environment")
+            visible: root.manager && !root.manager.customerProfile
         }
 
         QGCLabel {
             objectName: "uomCurrentEnvironment"
             text: root.manager && root.manager.environment === "official" ? qsTr("Official") : qsTr("Integration — isolated test data")
+            visible: root.manager && !root.manager.customerProfile
         }
 
         QGCLabel {
@@ -132,9 +135,31 @@ ColumnLayout {
 
     QGCLabel {
         Layout.fillWidth: true
+        objectName: "uomOperationBlockReason"
+        text: root.manager ? root.manager.operationBlockReason : ""
+        textFormat: Text.PlainText
+        visible: text.length > 0 && (!root.manager || text !== root.manager.statusText) && (!root.manager || root.manager.cooldownRemainingSeconds === 0)
+        wrapMode: Text.WordWrap
+    }
+
+    QGCLabel {
+        Layout.fillWidth: true
+        objectName: "uomCooldownStatus"
+        text: !root.manager ? "" : root.manager.automaticContinuation
+              ? (root.manager.operationStage === "reporting"
+                 ? qsTr("The device state is verified. Reporting will retry automatically in %1 seconds.").arg(root.manager.cooldownRemainingSeconds)
+                 : qsTr("Waiting to continue activation: %1 seconds. Keep the same aircraft connected, on the ground and disarmed. Activation will continue automatically.").arg(root.manager.cooldownRemainingSeconds))
+              : qsTr("Wait %1 seconds, then confirm Continue to resume the pending operation.").arg(root.manager.cooldownRemainingSeconds)
+        visible: root.manager && root.manager.pending && root.manager.cooldownRemainingSeconds > 0
+        wrapMode: Text.WordWrap
+    }
+
+    QGCLabel {
+        Layout.fillWidth: true
         objectName: "uomCredentialStatus"
         text: root.manager ? root.manager.credentialStatus : ""
         textFormat: Text.PlainText
+        visible: root.manager && !root.manager.customerProfile
         wrapMode: Text.WordWrap
     }
 
@@ -151,16 +176,10 @@ ColumnLayout {
         spacing: ScreenTools.defaultFontPixelWidth
 
         QGCButton {
-            objectName: "uomOpenWebsiteButton"
-            text: qsTr("Open official UOM website")
-
-            onClicked: Qt.openUrlExternally("https://uom.caac.gov.cn/")
-        }
-
-        QGCButton {
-            enabled: root.manager && root.manager.canConfigure
+            enabled: root.manager && !root.manager.customerProfile && root.manager.canConfigure
             objectName: "uomConfigureButton"
             text: qsTr("Configure UOM connection")
+            visible: root.manager && !root.manager.customerProfile
 
             onClicked: configurationFactory.open({
                 targetManager: root.manager
@@ -206,7 +225,9 @@ ColumnLayout {
         QGCButton {
             enabled: root.manager && root.manager.canRetry
             objectName: "uomRetryButton"
-            text: qsTr("Retry pending operation")
+            text: root.manager && root.manager.pendingOperation === "activate"
+                  ? (root.manager.automaticContinuation ? qsTr("Waiting to continue activation") : qsTr("Continue activation"))
+                  : qsTr("Continue deregistration")
             visible: root.manager && root.manager.pending
 
             onClicked: retryFactory.open({
@@ -391,6 +412,14 @@ ColumnLayout {
             }
 
             Connections {
+                function onIdentityInvalidated() {
+                    configurationDialog.close();
+                }
+
+                target: configurationDialog.targetManager
+            }
+
+            Connections {
                 function onManagerChanged() {
                     configurationDialog.close();
                 }
@@ -431,6 +460,14 @@ ColumnLayout {
                 textFormat: Text.PlainText
                 width: ScreenTools.defaultFontPixelWidth * 50
                 wrapMode: Text.WordWrap
+            }
+
+            Connections {
+                function onIdentityInvalidated() {
+                    activationDialog.close();
+                }
+
+                target: activationDialog.targetManager
             }
 
             Connections {
@@ -515,6 +552,14 @@ ColumnLayout {
             }
 
             Connections {
+                function onIdentityInvalidated() {
+                    cancellationDialog.close();
+                }
+
+                target: cancellationDialog.targetManager
+            }
+
+            Connections {
                 function onManagerChanged() {
                     cancellationDialog.close();
                 }
@@ -542,7 +587,7 @@ ColumnLayout {
 
             acceptButtonEnabled: targetManager && targetManager.canRetry && root.ridManager && root.ridManager.serial === targetSerial && root.ridManager.uid === targetUid
             buttons: Dialog.Ok | Dialog.Cancel
-            title: qsTr("Retry pending operation")
+            title: targetManager && targetManager.pendingOperation === "activate" ? qsTr("Continue activation") : qsTr("Continue deregistration")
 
             onAccepted: {
                 if (acceptButtonEnabled) {
@@ -551,10 +596,20 @@ ColumnLayout {
             }
 
             QGCLabel {
-                text: qsTr("Continue the pending operation for aircraft %1? A pending cancellation may resend the UOM registration cancellation request.").arg(retryDialog.targetSerial)
+                text: retryDialog.targetManager && retryDialog.targetManager.pendingOperation === "activate"
+                      ? qsTr("Continue activation for aircraft %1? QGC will read RID again and verify the saved operation before continuing.").arg(retryDialog.targetSerial)
+                      : qsTr("Continue deregistration for aircraft %1? This may resend the registration cancellation request.").arg(retryDialog.targetSerial)
                 textFormat: Text.PlainText
                 width: ScreenTools.defaultFontPixelWidth * 50
                 wrapMode: Text.WordWrap
+            }
+
+            Connections {
+                function onIdentityInvalidated() {
+                    retryDialog.close();
+                }
+
+                target: retryDialog.targetManager
             }
 
             Connections {

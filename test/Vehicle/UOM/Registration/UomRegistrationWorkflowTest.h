@@ -7,6 +7,14 @@ class UomRegistrationWorkflowTest final : public QObject
     Q_OBJECT
 private slots:
     void activationOrderAndStateSeparation();
+    void localCooldownContinuesConfirmedActivation();
+    void localCooldownConsentInvalidation_data();
+    void localCooldownConsentInvalidation();
+    void localCooldownRestartRequiresConfirmation();
+    void localCooldownReadbackMustMatchConsent();
+    void serverFailureDoesNotContinueActivation_data();
+    void serverFailureDoesNotContinueActivation();
+    void cancellationReconciliationRequiresConfirmation();
     void alreadyActiveStillRequiresDurableWrite();
     void unregisteredAircraftCannotActivate_data();
     void unregisteredAircraftCannotActivate();
@@ -31,4 +39,9 @@ private slots:
     void lateVerificationCannotCrossDeviceContext_data();
     void lateVerificationCannotCrossDeviceContext();
     void lateDeviceWriteCannotCrossAircraft();
+    void clearedIdentityRestoresOnlyHistory();
+    void clearedIdentityPreservesPending_data();
+    void clearedIdentityPreservesPending();
+    void customerProfileUsesReadIdentity();
+    void customerProfileRejectsForeignPending();
 };

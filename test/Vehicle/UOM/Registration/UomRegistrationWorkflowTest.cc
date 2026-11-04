@@ -178,7 +178,9 @@ public:
                              events.append(QStringLiteral("read"));
                              QTimer::singleShot(0, &workflow, [this, requestId]() {
                                  ++device.generation;
-                                 workflow.observeDevice(device, true);
+                                 if (observeReads) {
+                                     workflow.observeDevice(device, true);
+                                 }
                                  workflow.deviceRead(requestId, device);
                              });
                          });
@@ -231,6 +233,7 @@ public:
     QStringList events;
     QString error;
     int writes = 0;
+    bool observeReads = true;
     bool completeWrites = true;
     bool uncertainWrite = false;
     quint64 writeId = 0;
@@ -261,6 +264,210 @@ void UomRegistrationWorkflowTest::activationOrderAndStateSeparation()
     QCOMPARE(h.writes, 1);
     QCOMPARE(h.network.error, QString());
     QCOMPARE(h.error, QString());
+}
+
+void UomRegistrationWorkflowTest::localCooldownContinuesConfirmedActivation()
+{
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    h.network.plans = {
+        {resultBody(QStringLiteral("0"))}, {resultBody(QStringLiteral("0"))}, {resultBody(QStringLiteral("1"))}};
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canVerify(), TEST_TIMEOUT_MS);
+    h.workflow.verifyRegistration();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    h.now += 19000;
+    h.workflow.activate();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QCOMPARE(h.workflow.pendingOperation(), QStringLiteral("activate"));
+    QCOMPARE(h.workflow.operationStage(), QStringLiteral("verifying"));
+    QCOMPARE(h.workflow.cooldownRemainingSeconds(), 41);
+    QVERIFY(h.workflow.automaticContinuation());
+    QCOMPARE(h.network.requests.size(), 1);
+    QCOMPARE(h.writes, 0);
+    const auto deadline = h.workflow._cooldownDeadline.deadline();
+    for (int i = 0; i < 3; ++i) {
+        h.workflow.activate();
+        h.workflow.verifyRegistration();
+        h.workflow.retryPending();
+        h.workflow.deactivateAndCancel(QStringLiteral("3"), QStringLiteral("Ownership change"));
+    }
+    QCOMPARE(h.workflow._cooldownDeadline.deadline(), deadline);
+    QCOMPARE(h.events, QStringList({"read", "verify", "read"}));
+    QVERIFY(!h.workflow.canRetry());
+    h.now += 41001;
+    h.workflow._cooldownDeadline = QDeadlineTimer(0);
+    QVERIFY(QMetaObject::invokeMethod(&h.workflow._retry, "timeout", Qt::DirectConnection));
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.pending(), TEST_TIMEOUT_MS);
+    QCOMPARE(h.events, QStringList({"read", "verify", "read", "read", "verify", "write1", "report1"}));
+    QCOMPARE(h.writes, 1);
+    QVERIFY(!h.workflow.automaticContinuation());
+    QVERIFY(!h.workflow._activationConsent);
+    QCOMPARE(h.network.error, QString());
+    QCOMPARE(h.error, QString());
+}
+
+void UomRegistrationWorkflowTest::localCooldownConsentInvalidation_data()
+{
+    QTest::addColumn<QString>("change");
+    for (const char* change : {"boot", "revision", "state", "uid", "serial", "not-writable", "interrupt", "disconnect",
+                               "configuration", "key"}) {
+        QTest::newRow(change) << QString::fromLatin1(change);
+    }
+}
+
+void UomRegistrationWorkflowTest::localCooldownConsentInvalidation()
+{
+    QFETCH(QString, change);
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    h.network.plans = {{resultBody(QStringLiteral("0"))}};
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canVerify(), TEST_TIMEOUT_MS);
+    h.workflow.verifyRegistration();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    h.workflow.activate();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QVERIFY(h.workflow.automaticContinuation());
+    const auto deadline = h.workflow._cooldownDeadline.deadline();
+    const auto original = h.device;
+    if (change == QStringLiteral("boot")) {
+        ++h.device.boot;
+    } else if (change == QStringLiteral("revision")) {
+        ++h.device.revision;
+    } else if (change == QStringLiteral("state")) {
+        h.device.state = 1;
+    } else if (change == QStringLiteral("uid")) {
+        h.device.uid = QStringLiteral("001122AABBDD");
+    } else if (change == QStringLiteral("serial")) {
+        h.device.serial[0] = u'X';
+    } else if (change == QStringLiteral("interrupt")) {
+        h.workflow.interrupt();
+    } else if (change == QStringLiteral("disconnect")) {
+        h.workflow.clearCurrentDevice();
+    } else if (change == QStringLiteral("configuration") || change == QStringLiteral("key")) {
+        auto profile = config();
+        if (change == QStringLiteral("configuration")) {
+            profile.cancelUrl.setPath(QStringLiteral("/updated/cancelRegisterFactory"));
+        }
+        QVERIFY(h.workflow.configure(profile, KEY));
+    }
+    h.workflow.observeDevice(h.device, change != QStringLiteral("not-writable"));
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.configured(), TEST_TIMEOUT_MS);
+    QVERIFY(!h.workflow.automaticContinuation());
+    QVERIFY(!h.workflow._activationConsent);
+    QCOMPARE(h.workflow._cooldownDeadline.deadline(), deadline);
+    h.device = original;
+    h.workflow.observeDevice(h.device, true);
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.configured(), TEST_TIMEOUT_MS);
+    QVERIFY(!h.workflow.automaticContinuation());
+    QCOMPARE(h.writes, 0);
+    QCOMPARE(h.network.requests.size(), 1);
+    QVERIFY(h.store.loadPendingForDevice(SERIAL, UID));
+}
+
+void UomRegistrationWorkflowTest::localCooldownRestartRequiresConfirmation()
+{
+    QTemporaryDir directory;
+    const QString path = directory.filePath(QStringLiteral("registration.sqlite"));
+    {
+        WorkflowHarness h(path);
+        h.network.plans = {{resultBody(QStringLiteral("0"))}};
+        QVERIFY(h.start());
+        QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canVerify(), TEST_TIMEOUT_MS);
+        h.workflow.verifyRegistration();
+        QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+        h.workflow.activate();
+        QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+        QVERIFY(h.workflow.automaticContinuation());
+        QCOMPARE(h.writes, 0);
+    }
+    WorkflowHarness recovered(path, 0, 1060001);
+    recovered.network.plans = {{resultBody(QStringLiteral("0"))}, {resultBody(QStringLiteral("1"))}};
+    QVERIFY(recovered.start());
+    QTRY_VERIFY_WITH_TIMEOUT(recovered.workflow.canRetry(), TEST_TIMEOUT_MS);
+    QVERIFY(!recovered.workflow.automaticContinuation());
+    QVERIFY(!recovered.workflow._activationConsent);
+    QVERIFY(recovered.events.isEmpty());
+    recovered.workflow.retryPending();
+    QTRY_VERIFY_WITH_TIMEOUT(!recovered.workflow.pending(), TEST_TIMEOUT_MS);
+    QCOMPARE(recovered.events, QStringList({"read", "verify", "write1", "report1"}));
+    QCOMPARE(recovered.writes, 1);
+    QCOMPARE(recovered.network.error, QString());
+}
+
+void UomRegistrationWorkflowTest::localCooldownReadbackMustMatchConsent()
+{
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    h.network.plans = {{resultBody(QStringLiteral("0"))}};
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canVerify(), TEST_TIMEOUT_MS);
+    h.workflow.verifyRegistration();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    h.workflow.activate();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QVERIFY(h.workflow.automaticContinuation());
+    h.now += 60001;
+    h.workflow._cooldownDeadline = QDeadlineTimer(0);
+    h.observeReads = false;
+    ++h.device.boot;
+    QVERIFY(QMetaObject::invokeMethod(&h.workflow._retry, "timeout", Qt::DirectConnection));
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QVERIFY(h.workflow.pending());
+    QVERIFY(!h.workflow.automaticContinuation());
+    QVERIFY(!h.workflow._activationConsent);
+    QCOMPARE(h.writes, 0);
+    QCOMPARE(h.network.requests.size(), 1);
+}
+
+void UomRegistrationWorkflowTest::serverFailureDoesNotContinueActivation_data()
+{
+    QTest::addColumn<int>("httpStatus");
+    QTest::newRow("server-rate-limit") << 429;
+    QTest::newRow("server-unavailable") << 503;
+    QTest::newRow("network-timeout") << 0;
+}
+
+void UomRegistrationWorkflowTest::serverFailureDoesNotContinueActivation()
+{
+    QFETCH(int, httpStatus);
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    h.network.plans = {{.body = "unavailable",
+                        .error = httpStatus ? QNetworkReply::NoError : QNetworkReply::TimeoutError,
+                        .status = httpStatus}};
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canActivate(), TEST_TIMEOUT_MS);
+    h.workflow.activate();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QVERIFY(h.workflow.pending());
+    QVERIFY(!h.workflow.automaticContinuation());
+    QVERIFY(!h.workflow._activationConsent);
+    QCOMPARE(h.writes, 0);
+    QCOMPARE(h.network.requests.size(), 1);
+    if (httpStatus == 429) {
+        QVERIFY(h.workflow.cooldownRemainingSeconds() > 0);
+        QVERIFY(!h.workflow.canRetry());
+    }
+}
+
+void UomRegistrationWorkflowTest::cancellationReconciliationRequiresConfirmation()
+{
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")), 1);
+    h.network.plans = {{QByteArray(R"({"code":409})")}, {.body = "unavailable", .status = 503}};
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canDeactivate(), TEST_TIMEOUT_MS);
+    h.workflow.deactivateAndCancel(QStringLiteral("3"), QStringLiteral("Ownership change"));
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QCOMPARE(h.events, QStringList({"read", "write0", "report2", "verify"}));
+    QVERIFY(h.workflow.pending());
+    QVERIFY(!h.workflow.automaticContinuation());
+    QCOMPARE(h.workflow.pendingOperation(), QStringLiteral("deactivate"));
+    QCOMPARE(h.workflow.operationStage(), QStringLiteral("reconciling"));
+    QCOMPARE(h.writes, 1);
+    QCOMPARE(h.network.error, QString());
 }
 
 void UomRegistrationWorkflowTest::alreadyActiveStillRequiresDurableWrite()
@@ -356,8 +563,10 @@ void UomRegistrationWorkflowTest::activationReportRecoveryDoesNotRewriteDevice()
     QVERIFY(h.workflow.lastReportedAt().isEmpty());
     QCOMPARE(h.writes, 1);
     h.now += 60001;
+    h.workflow._cooldownDeadline = QDeadlineTimer(0);
     QVERIFY(h.workflow.canRetry());
-    h.workflow.retryPending();
+    QVERIFY(h.workflow.automaticContinuation());
+    QVERIFY(QMetaObject::invokeMethod(&h.workflow._retry, "timeout", Qt::DirectConnection));
     QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.pending(), TEST_TIMEOUT_MS);
     QCOMPARE(h.events, QStringList({"read", "verify", "write1", "report1", "read", "report1"}));
     QCOMPARE(h.writes, 1);
@@ -386,6 +595,12 @@ void UomRegistrationWorkflowTest::automaticRetryRequiresDurableProof()
     h.workflow.activate();
     QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
     QVERIFY(h.workflow.pending());
+    if (mismatch == QStringLiteral("missing")) {
+        QVERIFY(!h.workflow.automaticContinuation());
+        QVERIFY(!h.workflow._activationConsent);
+        QCOMPARE(h.writes, 0);
+        return;
+    }
     QVERIFY(h.workflow._retry.isActive());
     if (mismatch == QStringLiteral("boot")) {
         ++h.device.boot;
@@ -399,6 +614,7 @@ void UomRegistrationWorkflowTest::automaticRetryRequiresDurableProof()
     const int writes = h.writes;
     h.events.clear();
     h.now += 60001;
+    h.workflow._cooldownDeadline = QDeadlineTimer(0);
     QVERIFY(QMetaObject::invokeMethod(&h.workflow._retry, "timeout", Qt::DirectConnection));
     QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
     QCOMPARE(h.events, QStringList({"read"}));
@@ -447,6 +663,7 @@ void UomRegistrationWorkflowTest::pendingCancellationCanRepairProducerProfile()
                        {resultBody(QStringLiteral("3"))}};
     h.events.clear();
     h.now += 60001;
+    h.workflow._cooldownDeadline = QDeadlineTimer(0);
     h.workflow.retryPending();
     QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.pending(), TEST_TIMEOUT_MS);
     QCOMPARE(h.events, QStringList({"read", "verify", "report2", "cancel"}));
@@ -506,6 +723,7 @@ void UomRegistrationWorkflowTest::pendingCancellationCanRepairCancelUrl()
                        {resultBody(QStringLiteral("3"))}};
     h.events.clear();
     h.now += 60001;
+    h.workflow._cooldownDeadline = QDeadlineTimer(0);
     h.workflow.retryPending();
     QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.pending(), TEST_TIMEOUT_MS);
     QCOMPARE(h.events, QStringList({"read", "verify", "report2", "cancel"}));
@@ -628,6 +846,7 @@ void UomRegistrationWorkflowTest::reconciliationPreservesPreviousReportAcknowled
         reportedAt = h.workflow.lastReportedAt();
         QVERIFY(!reportedAt.isEmpty());
         h.now += 60001;
+        h.workflow._cooldownDeadline = QDeadlineTimer(0);
         h.workflow.deactivateAndCancel(QStringLiteral("3"), QStringLiteral("Ownership change"));
         QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
         QVERIFY(!h.workflow.pending());
@@ -860,6 +1079,186 @@ void UomRegistrationWorkflowTest::lateDeviceWriteCannotCrossAircraft()
     QCOMPARE(h.network.requests.size(), 1);
     QVERIFY(h.workflow.lastReportedAt().isEmpty());
     QCOMPARE(h.network.error, QString());
+}
+
+void UomRegistrationWorkflowTest::clearedIdentityRestoresOnlyHistory()
+{
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    h.network.plans = {{resultBody(QStringLiteral("0"))}, {resultBody(QStringLiteral("1"))}};
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canActivate(), TEST_TIMEOUT_MS);
+    h.workflow.activate();
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.lastReportedAt().isEmpty(), TEST_TIMEOUT_MS);
+    QVERIFY(!h.workflow.lastVerifiedAt().isEmpty());
+    const QString reportedAt = h.workflow.lastReportedAt();
+    const QString report = h.workflow.reportText();
+
+    h.workflow.clearCurrentDevice();
+    QVERIFY(!h.workflow.canVerify());
+    QVERIFY(!h.workflow.canActivate());
+    QVERIFY(!h.workflow.canDeactivate());
+    QVERIFY(!h.workflow.canRetry());
+    QVERIFY(h.workflow.lastVerifiedAt().isEmpty());
+    QVERIFY(h.workflow.lastReportedAt().isEmpty());
+    QCOMPARE(h.workflow.registrationText(), QStringLiteral("Not verified"));
+    QCOMPARE(h.workflow.deviceActivationText(), QStringLiteral("Unknown; read RID"));
+    QCOMPARE(h.workflow.reportText(), QStringLiteral("No report acknowledgement recorded"));
+    h.credentials.get(h.workflow.keyReference());
+    QCoreApplication::processEvents();
+    QCOMPARE(h.workflow.statusText(), QStringLiteral("Waiting to read the connected RID"));
+
+    h.workflow.observeDevice(h.device, true);
+    QVERIFY(h.workflow.canVerify());
+    QVERIFY(h.workflow.lastVerifiedAt().isEmpty());
+    QCOMPARE(h.workflow.lastReportedAt(), reportedAt);
+    QCOMPARE(h.workflow.reportText(), report);
+    QCOMPARE(h.network.requests.size(), 2);
+    QCOMPARE(h.writes, 1);
+}
+
+void UomRegistrationWorkflowTest::clearedIdentityPreservesPending_data()
+{
+    QTest::addColumn<QString>("stage");
+    for (const char* stage : {"verify", "write", "report", "cancel"}) {
+        QTest::newRow(stage) << QString::fromLatin1(stage);
+    }
+}
+
+void UomRegistrationWorkflowTest::clearedIdentityPreservesPending()
+{
+    QFETCH(QString, stage);
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    h.completeWrites = stage != QStringLiteral("write");
+    if (stage == QStringLiteral("cancel")) {
+        h.network.plans = {{resultBody(QStringLiteral("2"), QStringLiteral("cancel-token"))},
+                           {.body = resultBody(QStringLiteral("3")), .held = true}};
+    } else {
+        h.network.plans = {{.body = resultBody(QStringLiteral("0")), .held = stage == QStringLiteral("verify")},
+                           {.body = resultBody(QStringLiteral("1")), .held = true}};
+    }
+    QVERIFY(h.start());
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canActivate(), TEST_TIMEOUT_MS);
+    if (stage == QStringLiteral("cancel")) {
+        h.workflow.deactivateAndCancel(QStringLiteral("0"), QStringLiteral("Transfer"));
+    } else {
+        h.workflow.activate();
+    }
+    const int requestCount = stage == QStringLiteral("report") || stage == QStringLiteral("cancel") ? 2 : 1;
+    QTRY_COMPARE_WITH_TIMEOUT(h.network.requests.size(), requestCount, TEST_TIMEOUT_MS);
+    if (stage == QStringLiteral("write")) {
+        QTRY_COMPARE_WITH_TIMEOUT(h.writes, 1, TEST_TIMEOUT_MS);
+    }
+    const auto pending = h.store.loadPendingForDevice(SERIAL, UID);
+    QVERIFY(pending);
+    const auto oldReply = h.network.requests.last().reply;
+    const int writes = h.writes;
+
+    h.workflow.clearCurrentDevice();
+    if (oldReply) {
+        oldReply->finish();
+    }
+    auto oldDevice = h.device;
+    oldDevice.state = 1;
+    h.workflow.deviceWritten(h.writeId, oldDevice);
+    QCoreApplication::processEvents();
+    QVERIFY(!h.workflow.busy());
+    QVERIFY(!h.workflow.pending());
+    QVERIFY(!h.workflow.canRetry());
+    QVERIFY(h.workflow.lastVerifiedAt().isEmpty());
+    QVERIFY(h.workflow.lastReportedAt().isEmpty());
+    QCOMPARE(h.network.requests.size(), requestCount);
+    QCOMPARE(h.writes, writes);
+    const auto saved = h.store.loadPendingForDevice(SERIAL, UID);
+    QVERIFY(saved);
+    QCOMPARE(saved->id, pending->id);
+    QCOMPARE(saved->stage, pending->stage);
+    QCOMPARE(saved->tokenReference, pending->tokenReference);
+
+    auto other = h.device;
+    other.uid = QStringLiteral("FFEEDDCCBBAA");
+    h.workflow.observeDevice(other, true);
+    QVERIFY(!h.workflow.pending());
+    h.workflow.clearCurrentDevice();
+    h.workflow.observeDevice(h.device, true);
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.canRetry(), TEST_TIMEOUT_MS);
+    QCOMPARE(h.network.requests.size(), requestCount);
+    QCOMPARE(h.writes, writes);
+}
+
+void UomRegistrationWorkflowTest::customerProfileUsesReadIdentity()
+{
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    auto profile = config();
+    profile.environment = QStringLiteral("official");
+    profile.expectedSerial.clear();
+    QVERIFY(h.workflow.configureCustomerProfile(profile, KEY));
+    QTRY_VERIFY_WITH_TIMEOUT(h.workflow.configured(), TEST_TIMEOUT_MS);
+    QVERIFY(!h.workflow.canVerify());
+    QVERIFY(h.workflow.config().expectedSerial.isEmpty());
+    QVERIFY(!h.workflow.configure(config(), KEY));
+    QVERIFY(!h.workflow.configureCustomerProfile(profile, KEY));
+
+    for (const QString& serial : {SERIAL, QStringLiteral("ALABB950B950U4400002")}) {
+        h.device.serial = serial;
+        h.workflow.observeDevice(h.device, true);
+        QVERIFY(h.workflow.canVerify());
+        QCOMPARE(h.workflow.config().expectedSerial, serial);
+        h.network.plans.append({resultBody(QStringLiteral("0"))});
+        h.workflow.verifyRegistration();
+        QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+        QVERIFY(!h.network.requests.isEmpty());
+        QCOMPARE(h.network.requests.last().payload.value(QStringLiteral("UPIC_MSN")).toString(), serial);
+        QCOMPARE(h.workflow.registrationText(), QStringLiteral("Registered"));
+        h.workflow.clearCurrentDevice();
+        QVERIFY(h.workflow.config().expectedSerial.isEmpty());
+        QVERIFY(!h.workflow.canVerify());
+    }
+    QCOMPARE(h.network.requests.size(), 2);
+    QCOMPARE(h.writes, 0);
+    QVERIFY(h.network.error.isEmpty());
+}
+
+void UomRegistrationWorkflowTest::customerProfileRejectsForeignPending()
+{
+    QTemporaryDir directory;
+    const QString path = directory.filePath(QStringLiteral("registration.sqlite"));
+    QString operationId;
+    {
+        WorkflowHarness original(path);
+        original.network.plans = {{.body = resultBody(QStringLiteral("0")), .held = true}};
+        QVERIFY(original.start());
+        QTRY_VERIFY_WITH_TIMEOUT(original.workflow.canActivate(), TEST_TIMEOUT_MS);
+        original.workflow.activate();
+        QTRY_COMPARE_WITH_TIMEOUT(original.network.requests.size(), 1, TEST_TIMEOUT_MS);
+        const auto pending = original.store.loadPendingForDevice(SERIAL, UID);
+        QVERIFY(pending);
+        operationId = pending->id;
+        original.workflow.clearCurrentDevice();
+    }
+    WorkflowHarness restored(path);
+    auto profile = config();
+    profile.environment = QStringLiteral("official");
+    profile.expectedSerial.clear();
+    QVERIFY(restored.workflow.configureCustomerProfile(profile, KEY));
+    restored.workflow.observeDevice(restored.device, true);
+    QTRY_VERIFY_WITH_TIMEOUT(restored.workflow.configured(), TEST_TIMEOUT_MS);
+    QVERIFY(restored.workflow.statusText().contains(QStringLiteral("contact the manufacturer")));
+    QVERIFY(restored.workflow.pending());
+    QVERIFY(!restored.workflow.canVerify());
+    QVERIFY(!restored.workflow.canActivate());
+    QVERIFY(!restored.workflow.canDeactivate());
+    QVERIFY(!restored.workflow.canRetry());
+    QCOMPARE(restored.workflow.config().scope(), profile.scope());
+    const auto pending = restored.store.loadPendingForDevice(SERIAL, UID);
+    QVERIFY(pending);
+    QCOMPARE(pending->id, operationId);
+    QCOMPARE(pending->scope, config().scope());
+    restored.workflow.retryPending();
+    QVERIFY(restored.network.requests.isEmpty());
+    QCOMPARE(restored.writes, 0);
 }
 
 QTEST_GUILESS_MAIN(UomRegistrationWorkflowTest)

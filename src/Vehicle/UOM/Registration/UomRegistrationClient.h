@@ -31,7 +31,7 @@ signals:
     void completed(quint64 requestId, const UomRegistration::Result& result);
 
 private:
-    void _reject(quint64 requestId, const QString& detail, int retryAfter = 0);
+    void _reject(quint64 requestId, const QString& detail, int retryAfter = 0, bool localCooldown = false);
     UomRegistrationStore* _store;
     QNetworkAccessManager* _network;
     QPointer<QNetworkReply> _reply;

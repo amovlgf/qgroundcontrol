@@ -58,17 +58,17 @@ VehicleRidManager::VehicleRidManager(Vehicle* vehicle)
     });
     connect(MultiVehicleManager::instance(), &MultiVehicleManager::activeVehicleChanged, this, [this](Vehicle* active) {
         if (active != _vehicle) {
-            if (busy()) {
-                _fail(tr("Active aircraft changed; read RID before retrying"));
-            } else {
-                ++_generation;
-            }
+            _resetConnection();
+            return;
         }
         emit changed();
     });
     if (_vehicle) {
-        connect(_vehicle->vehicleLinkManager(), &VehicleLinkManager::communicationLostChanged, this,
-                [this](bool) { _resetConnection(); });
+        connect(_vehicle->vehicleLinkManager(), &VehicleLinkManager::communicationLostChanged, this, [this](bool lost) {
+            if (lost) {
+                _resetConnection();
+            }
+        });
         connect(_vehicle->vehicleLinkManager(), &VehicleLinkManager::allLinksRemoved, this,
                 [this](Vehicle*) { _resetConnection(); });
         connect(_vehicle, &Vehicle::underwayChanged, this, [this](bool underway) {
@@ -172,7 +172,7 @@ QString VehicleRidManager::factoryIdentityError(const QString& serial, int aircr
         return tr("Product code must contain exactly 20 printable ASCII characters without spaces");
     }
     if (aircraftClass < 0 || aircraftClass > 4) {
-        return tr("Aircraft class must be between 0 and 4");
+        return tr("Select the aircraft class using the manufacturer documentation");
     }
     return {};
 }
@@ -223,6 +223,7 @@ void VehicleRidManager::_resetConnection()
                   ? tr("Factory identity outcome is unknown. Reconnect and read RID devices to check the original "
                        "transaction.")
                   : tr("Connection changed; read RID devices again");
+    emit identityInvalidated();
     emit changed();
     if (activationRequestId) {
         emit activationFailed(activationRequestId, _status, activationUncertain);

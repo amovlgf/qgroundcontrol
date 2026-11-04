@@ -23,6 +23,7 @@ struct Config
     QUrl cancelUrl{QStringLiteral("https://uom.caac.gov.cn/api/uom-uavreg/eqgb/openapi/cancelRegisterFactory")};
 
     [[nodiscard]] QString scope() const;
+    [[nodiscard]] bool validProfile() const;
     [[nodiscard]] bool valid() const;
     [[nodiscard]] QUrl endpoint(Operation operation) const;
 };
@@ -32,6 +33,7 @@ struct Result
     bool success = false;
     bool retryable = false;
     bool uncertain = false;
+    bool localCooldown = false;
     int retryAfterSeconds = 0;
     QString value{};
     QString token{};

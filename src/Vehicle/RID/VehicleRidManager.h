@@ -89,6 +89,7 @@ public:
     Q_INVOKABLE void reboot();
 
 signals:
+    void identityInvalidated();
     void changed();
     void parametersChanged();
     void activationRead(quint64 requestId, const RidActivationContext& context, int state);

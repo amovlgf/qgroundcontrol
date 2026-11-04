@@ -50,6 +50,11 @@ set_tests_properties(CMake.DownloadHelper PROPERTIES LABELS "CMake;Unit" FAIL_RE
                                                      "ASSERT|FATAL_ERROR|CMake Error"
 )
 
+add_test(NAME CMake.B950Profile COMMAND "${CMAKE_COMMAND}" "-DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/B950Profile" -P
+                                        "${CMAKE_CURRENT_SOURCE_DIR}/test_b950_profile.cmake"
+)
+set_tests_properties(CMake.B950Profile PROPERTIES LABELS "CMake;Unit")
+
 set(_qgc_expected_failure_cases
     "QmlCodegenMissingNames|qml-codegen-missing-names|QML_NAMES is required"
     "QmlCodegenMissingPython|qml-codegen-missing-python|Python3::Interpreter target is required"

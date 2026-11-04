@@ -22443,14 +22443,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <translation>20 个 ASCII 字符，不能含空格</translation>
     </message>
     <message>
-      <source>Aircraft class (0–4)</source>
-      <translation>航空器类别（0–4）</translation>
-    </message>
-    <message>
-      <source>I verified the UID and SN and confirm this permanent binding</source>
-      <translation>我已核对 UID 和整机 SN，确认永久绑定</translation>
-    </message>
-    <message>
       <source>The product code cannot be edited after provisioning. It survives restart, firmware updates and restoring ordinary defaults. The RID remains unactivated until platform synchronization.</source>
       <translation>预置后不能在此修改产品识别码；重启、升级和恢复普通参数默认值均会保留。预置后仍未激活，需要另外同步平台激活状态。</translation>
     </message>
@@ -22514,16 +22506,56 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <source>The product code cannot be edited after provisioning. It survives restart, firmware updates and restoring ordinary defaults. Complete UOM registration and device activation before flight.</source>
       <translation>产品码预置后不能修改，重启、固件更新或恢复普通默认值均会保留。飞行前请完成 UOM 登记与设备激活。</translation>
     </message>
+    <message>
+      <source>Aircraft class</source>
+      <translation>航空器类别</translation>
+    </message>
+    <message>
+      <source>Aircraft class (micro, light, small, medium or large) is different from aircraft configuration, such as multirotor or fixed wing. Use the class stated by the manufacturer; do not infer it from appearance or the product model.</source>
+      <translation>航空器类别指微型、轻型、小型、中型、大型，与多旋翼、固定翼等机型不同。请使用厂家资料明确标注的类别，不要根据外观或产品型号推测。</translation>
+    </message>
+    <message>
+      <source>Confirm the class using the aircraft label, manual or manufacturer documentation. If unsure, contact the manufacturer before binding.</source>
+      <translation>请依据整机铭牌、说明书或厂家资料确认航空器类别。不确定时，请先联系厂家确认后再绑定。</translation>
+    </message>
+    <message>
+      <source>How do I confirm the aircraft class?</source>
+      <translation>如何确认类别</translation>
+    </message>
+    <message>
+      <source>I verified the UID, aircraft SN and aircraft class and confirm this permanent binding</source>
+      <translation>我已核对 UID、整机 SN 和航空器类别，确认永久绑定</translation>
+    </message>
+    <message>
+      <source>Large</source>
+      <translation>大型</translation>
+    </message>
+    <message>
+      <source>Light</source>
+      <translation>轻型</translation>
+    </message>
+    <message>
+      <source>Medium</source>
+      <translation>中型</translation>
+    </message>
+    <message>
+      <source>Micro</source>
+      <translation>微型</translation>
+    </message>
+    <message>
+      <source>Select aircraft class</source>
+      <translation>请选择航空器类别</translation>
+    </message>
+    <message>
+      <source>Small</source>
+      <translation>小型</translation>
+    </message>
   </context>
   <context>
     <name>VehicleRidManager</name>
     <message>
       <source>Product code must contain exactly 20 printable ASCII characters without spaces</source>
       <translation>产品识别码必须恰好为 20 个可打印 ASCII 字符，不能含空格</translation>
-    </message>
-    <message>
-      <source>Aircraft class must be between 0 and 4</source>
-      <translation>航空器类别必须为 0 至 4</translation>
     </message>
     <message>
       <source>Factory identity outcome is unknown. Reconnect and read RID devices to check the original transaction.</source>
@@ -22637,6 +22669,10 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <source>Select the RID device to manage</source>
       <translation>请选择要管理的 RID 设备</translation>
     </message>
+    <message>
+      <source>Select the aircraft class using the manufacturer documentation</source>
+      <translation>请依据厂家资料选择航空器类别</translation>
+    </message>
   </context>
   <context>
     <name>RidTransportClient</name>
@@ -22650,10 +22686,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
     <message>
       <source>UOM real-name registration and activation</source>
       <translation>UOM 实名登记与激活</translation>
-    </message>
-    <message>
-      <source>Complete real-name registration and activation before first use. Registration is completed on the official UOM website.</source>
-      <translation>首次使用前请完成实名登记和激活。实名登记请在 UOM 官方网站办理。</translation>
     </message>
     <message>
       <source>Product model</source>
@@ -22712,10 +22744,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <translation>连接飞机后管理 UOM 实名登记</translation>
     </message>
     <message>
-      <source>Open official UOM website</source>
-      <translation>打开 UOM 官方网站</translation>
-    </message>
-    <message>
       <source>Configure UOM connection</source>
       <translation>配置 UOM 连接</translation>
     </message>
@@ -22730,10 +22758,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
     <message>
       <source>Deactivate and cancel registration</source>
       <translation>取消激活并注销登记</translation>
-    </message>
-    <message>
-      <source>Retry pending operation</source>
-      <translation>重试待处理操作</translation>
     </message>
     <message>
       <source>Use the producer ID and key ID issued for this environment. Official URLs are provided by UOM after approval.</source>
@@ -22811,10 +22835,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <source>I confirm this aircraft and understand that registration will be cancelled</source>
       <translation>我已核对目标飞机，并确认将注销实名登记</translation>
     </message>
-    <message>
-      <source>Continue the pending operation for aircraft %1? A pending cancellation may resend the UOM registration cancellation request.</source>
-      <translation>确认继续处理飞机 %1 的待处理操作？尚未完成的注销可能再次发送 UOM 注销登记请求。</translation>
-    </message>
       <message>
         <source>Not recorded</source>
         <translation>未记录</translation>
@@ -22827,9 +22847,53 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
         <source>I confirm these corrections for the pending operation. Continuing may send its original cancellation request.</source>
         <translation>我确认对待处理操作作出这些修正。继续时可能发送原操作的注销申请。</translation>
     </message>
-</context>
+    <message>
+      <source>Check real-name registration and activate the connected aircraft in QGC. Valid real-name registration is required for activation.</source>
+      <translation>通过 QGC 核验已连接飞机的实名登记并完成激活。激活前须具备有效实名登记。</translation>
+    </message>
+    <message>
+      <source>Continue activation</source>
+      <translation>继续激活</translation>
+    </message>
+    <message>
+      <source>Continue activation for aircraft %1? QGC will read RID again and verify the saved operation before continuing.</source>
+      <translation>确认继续激活飞机 %1？QGC 将重新读取 RID 并核查已保存的操作后继续。</translation>
+    </message>
+    <message>
+      <source>Continue deregistration</source>
+      <translation>继续取消登记</translation>
+    </message>
+    <message>
+      <source>Continue deregistration for aircraft %1? This may resend the registration cancellation request.</source>
+      <translation>确认继续取消飞机 %1 的登记？这可能再次发送注销登记请求。</translation>
+    </message>
+    <message>
+      <source>The device state is verified. Reporting will retry automatically in %1 seconds.</source>
+      <translation>设备状态已确认，将在 %1 秒后自动重试上报。</translation>
+    </message>
+    <message>
+      <source>Wait %1 seconds, then confirm Continue to resume the pending operation.</source>
+      <translation>请等待 %1 秒，再确认继续处理待完成的操作。</translation>
+    </message>
+    <message>
+      <source>Waiting to continue activation</source>
+      <translation>等待继续激活</translation>
+    </message>
+    <message>
+      <source>Waiting to continue activation: %1 seconds. Keep the same aircraft connected, on the ground and disarmed. Activation will continue automatically.</source>
+      <translation>等待继续激活：剩余 %1 秒。请保持同一架飞机连接、在地面且未解锁，倒计时结束后将自动继续激活。</translation>
+    </message>
+  </context>
   <context>
     <name>UomRegistrationWorkflow</name>
+    <message>
+      <source>Waiting to read the connected RID</source>
+      <translation>等待读取当前连接的 RID</translation>
+    </message>
+    <message>
+      <source>The pending operation uses a different manufacturer configuration; contact the manufacturer</source>
+      <translation>待处理操作使用的厂家配置与当前不同，请联系厂家处理</translation>
+    </message>
     <message>
       <source>Not reported</source>
       <translation>尚未上报</translation>
@@ -23015,14 +23079,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <translation>实名登记核验通过，飞机尚需单独激活</translation>
     </message>
     <message>
-      <source>Complete or renew registration on the official UOM website</source>
-      <translation>请在 UOM 官方网站完成或重新办理实名登记</translation>
-    </message>
-    <message>
-      <source>Activation blocked: UOM registration is not normal</source>
-      <translation>无法激活：UOM 实名登记状态不是正常</translation>
-    </message>
-    <message>
       <source>RID activation verified and UOM activation report accepted</source>
       <translation>RID 激活已确认，UOM 已接受激活上报</translation>
     </message>
@@ -23051,10 +23107,6 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <translation>未激活状态和注销登记均已接受</translation>
     </message>
     <message>
-      <source>; synchronization will retry after the request cooldown</source>
-      <translation>；将在请求间隔结束后重试同步</translation>
-    </message>
-    <message>
       <source>Aircraft connection or operating state changed. Re-read the same RID before continuing</source>
       <translation>飞机连接或运行状态已变化，请重新读取同一 RID 后继续</translation>
     </message>
@@ -23074,16 +23126,60 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
         <source>Durable device state is not confirmed. Confirm Continue to revalidate the aircraft before any device write</source>
         <translation>尚未确认设备状态已持久保存。请确认继续，以便在写入设备前重新核对飞机状态</translation>
     </message>
-</context>
+    <message>
+      <source>. Check the aircraft and connection, then confirm Continue to resume</source>
+      <translation>。请检查飞机和连接，确认继续后恢复操作</translation>
+    </message>
+    <message>
+      <source>A saved operation is pending; use Continue to finish it</source>
+      <translation>存在待处理操作，请点击对应的“继续”按钮完成原操作</translation>
+    </message>
+    <message>
+      <source>Aircraft identity or operating state changed. Confirm Continue to resume activation</source>
+      <translation>飞机身份或运行状态发生变化，请确认继续后恢复激活</translation>
+    </message>
+    <message>
+      <source>An operation is in progress; wait for its result</source>
+      <translation>操作正在进行，请等待结果</translation>
+    </message>
+    <message>
+      <source>Connected aircraft identity does not match the configuration; check the aircraft SN</source>
+      <translation>当前飞机身份与配置不符，请核对整机 SN</translation>
+    </message>
+    <message>
+      <source>Manufacturer connection configuration is unavailable; contact the manufacturer</source>
+      <translation>厂家接入配置不可用，请联系厂家处理</translation>
+    </message>
+    <message>
+      <source>No valid real-name registration was found; activation is unavailable</source>
+      <translation>未查询到有效实名登记，暂不能激活</translation>
+    </message>
+    <message>
+      <source>RID connected; aircraft SN is not bound. Bind the aircraft identity to continue</source>
+      <translation>已连接 RID，尚未绑定整机 SN。请先绑定整机身份</translation>
+    </message>
+    <message>
+      <source>RID state is not ready; read RID again with the aircraft on the ground and disarmed</source>
+      <translation>RID 状态尚未就绪，请保持飞机在地面且未解锁，重新读取 RID</translation>
+    </message>
+    <message>
+      <source>Read the connected RID to continue</source>
+      <translation>请读取当前连接的 RID 后继续</translation>
+    </message>
+    <message>
+      <source>Real-name registration has been cancelled; activation is unavailable</source>
+      <translation>实名登记已注销，暂不能激活</translation>
+    </message>
+    <message>
+      <source>Wait %1 seconds before continuing</source>
+      <translation>请等待 %1 秒后继续</translation>
+    </message>
+  </context>
   <context>
     <name>VehicleUomRegistrationManager</name>
     <message>
       <source>UOM transaction storage is unavailable; operations are disabled</source>
       <translation>UOM 事务存储不可用，操作已禁用</translation>
-    </message>
-    <message>
-      <source>Connected product code does not match the configured aircraft; no operation is permitted</source>
-      <translation>已连接产品码与配置的飞机不符，禁止操作</translation>
     </message>
     <message>
       <source>Connect an aircraft to check its existing flight restrictions</source>
@@ -23104,6 +23200,30 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
     <message>
       <source>. QGC does not change these parameters</source>
       <translation>。QGC 不修改这些参数</translation>
+    </message>
+    <message>
+      <source>Aircraft disconnected; reconnect and read RID to continue</source>
+      <translation>飞机已断开，请重新连接并读取 RID 后继续</translation>
+    </message>
+    <message>
+      <source>Land and disarm the aircraft before continuing</source>
+      <translation>请在飞机落地且未解锁时继续操作</translation>
+    </message>
+    <message>
+      <source>RID connected; aircraft SN is not bound. Bind the aircraft identity to continue</source>
+      <translation>已连接 RID，尚未绑定整机 SN。请先绑定整机身份</translation>
+    </message>
+    <message>
+      <source>RID has not been read; select Read RID device</source>
+      <translation>尚未读取 RID，请点击“读取 RID 设备”</translation>
+    </message>
+    <message>
+      <source>Reading RID; wait for the device information</source>
+      <translation>正在读取 RID，请等待设备信息读取完成</translation>
+    </message>
+    <message>
+      <source>Select and connect the aircraft to continue</source>
+      <translation>请选择并连接需要操作的飞机</translation>
     </message>
   </context>
   <context>
@@ -23178,6 +23298,10 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
     <message>
       <source>UOM confirmed the result</source>
       <translation>UOM 已确认结果</translation>
+    </message>
+    <message>
+      <source>The UOM request history could not be read safely</source>
+      <translation>无法可靠读取 UOM 请求记录，操作已停止</translation>
     </message>
   </context>
 </TS>

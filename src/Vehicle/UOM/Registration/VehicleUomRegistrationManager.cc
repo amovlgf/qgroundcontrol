@@ -7,6 +7,7 @@
 #include "Fact.h"
 #include "MultiVehicleManager.h"
 #include "ParameterManager.h"
+#include "UomRegistrationProfile.h"
 #include "Vehicle.h"
 #include "VehicleLinkManager.h"
 #include "VehicleRidManager.h"
@@ -37,6 +38,10 @@ VehicleUomRegistrationManager::VehicleUomRegistrationManager(Vehicle* vehicle)
         return;
     }
     auto* rid = _vehicle->ridManager();
+    connect(rid, &VehicleRidManager::identityInvalidated, this, [this]() {
+        _workflow.clearCurrentDevice();
+        emit identityInvalidated();
+    });
     connect(rid, &VehicleRidManager::changed, this, &VehicleUomRegistrationManager::_syncDevice);
     connect(rid, &VehicleRidManager::activationRead, this,
             [this](quint64 id, const RidActivationContext& context, int state) {
@@ -90,13 +95,20 @@ void VehicleUomRegistrationManager::_syncDevice()
     if (!_vehicle || !_vehicle->ridManager()) {
         return;
     }
+    const auto* links = _vehicle->vehicleLinkManager();
+    if (MultiVehicleManager::instance()->activeVehicle() != _vehicle || !links || links->communicationLost() ||
+        links->primaryLink().expired()) {
+        _workflow.clearCurrentDevice();
+        return;
+    }
     auto* rid = _vehicle->ridManager();
     _workflow.observeDevice(deviceSnapshot(rid->activationContext(), rid->activationState()), rid->canWrite());
 }
 
 QVariantMap VehicleUomRegistrationManager::configurationForEnvironment(const QString& environment) const
 {
-    if (environment != QStringLiteral("integration") && environment != QStringLiteral("official")) {
+    if (customerProfile() ||
+        (environment != QStringLiteral("integration") && environment != QStringLiteral("official"))) {
         return {};
     }
     QSettings settings;
@@ -118,6 +130,10 @@ QVariantMap VehicleUomRegistrationManager::configurationForEnvironment(const QSt
 
 void VehicleUomRegistrationManager::_loadConfiguration()
 {
+    if (customerProfile()) {
+        _workflow.configureCustomerProfile(UomRegistrationProfile::config(), UomRegistrationProfile::key());
+        return;
+    }
     QSettings settings;
     const QString environment =
         settings.value(QStringLiteral("UomRegistration/environment"), QStringLiteral("integration")).toString();
@@ -138,6 +154,9 @@ bool VehicleUomRegistrationManager::configure(const QString& environment, const 
                                               const QString& expectedSerial, const QString& verifyUrl,
                                               const QString& reportUrl, const QString& cancelUrl, const QString& keyId)
 {
+    if (customerProfile()) {
+        return false;
+    }
     UomRegistration::Config config;
     config.environment = environment;
     config.producerId = producerId.trimmed();
@@ -162,14 +181,41 @@ bool VehicleUomRegistrationManager::configure(const QString& environment, const 
 
 QString VehicleUomRegistrationManager::statusText() const
 {
+    const QString reason = operationBlockReason();
+    return !busy() && !pending() && !reason.isEmpty() ? reason : _workflow.statusText();
+}
+
+QString VehicleUomRegistrationManager::operationBlockReason() const
+{
     if (!_store->ready()) {
         return tr("UOM transaction storage is unavailable; operations are disabled");
     }
-    if (!busy() && _vehicle && _vehicle->ridManager() && !_vehicle->ridManager()->serial().isEmpty() &&
-        _vehicle->ridManager()->serial() != expectedSerial()) {
-        return tr("Connected product code does not match the configured aircraft; no operation is permitted");
+    if (!_vehicle || !_vehicle->ridManager() || MultiVehicleManager::instance()->activeVehicle() != _vehicle) {
+        return tr("Select and connect the aircraft to continue");
     }
-    return _workflow.statusText();
+    const auto* links = _vehicle->vehicleLinkManager();
+    if (!links || links->communicationLost() || links->primaryLink().expired()) {
+        return tr("Aircraft disconnected; reconnect and read RID to continue");
+    }
+    if (_vehicle->armed() || _vehicle->underway()) {
+        return tr("Land and disarm the aircraft before continuing");
+    }
+    const auto* rid = _vehicle->ridManager();
+    if (rid->busy() && !busy()) {
+        return tr("Reading RID; wait for the device information");
+    }
+    if (!rid->supported() || rid->uid().isEmpty()) {
+        return tr("RID has not been read; select Read RID device");
+    }
+    if (rid->serial().isEmpty()) {
+        return tr("RID connected; aircraft SN is not bound. Bind the aircraft identity to continue");
+    }
+    return _workflow.operationBlockReason();
+}
+
+bool VehicleUomRegistrationManager::customerProfile() const
+{
+    return UomRegistrationProfile::customerBuild();
 }
 
 void VehicleUomRegistrationManager::_watchSafetyFacts()

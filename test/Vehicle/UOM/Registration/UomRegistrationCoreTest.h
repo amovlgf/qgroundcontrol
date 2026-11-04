@@ -14,6 +14,7 @@ private slots:
     void schemaMigrationDoesNotInventAcknowledgements();
     void profileMigrationPreservesIdentityAndHistory();
     void encryptedWireAndPersistentLimit();
+    void requestHistoryFailureIsNotCooldown();
     void cancellationHasNoHiddenSerialAndNoLateResult();
     void memoryCredentialsAreExplicitAndRemovable();
     void unavailableKeyringRetainsMemory();

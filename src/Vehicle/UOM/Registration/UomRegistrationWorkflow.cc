@@ -10,6 +10,7 @@
 
 #include "UomRegistrationClient.h"
 #include "UomRegistrationCredentials.h"
+#include "UomRegistrationCrypto.h"
 #include "UomRegistrationStore.h"
 
 using UomRegistration::Operation;
@@ -32,10 +33,25 @@ UomRegistrationWorkflow::UomRegistrationWorkflow(UomRegistrationStore* store, Uo
 {
     _config.expectedSerial = QStringLiteral("ALABB950B950U4400001");
     _retry.setSingleShot(true);
+    _retry.setTimerType(Qt::PreciseTimer);
+    _countdown.setInterval(1000);
+    connect(&_countdown, &QTimer::timeout, this, [this]() {
+        if (cooldownRemainingSeconds() == 0) {
+            _countdown.stop();
+        }
+        emit changed();
+    });
     connect(&_retry, &QTimer::timeout, this, [this]() {
+        if (cooldownRemainingSeconds() > 0) {
+            _retry.start(cooldownRemainingSeconds() * 1000);
+            return;
+        }
         if (canRetry()) {
             _explicitRetry = false;
             _begin(Action::Resume);
+        } else {
+            _activationConsent.reset();
+            emit changed();
         }
     });
     connect(_client, &UomRegistrationClient::completed, this, &UomRegistrationWorkflow::_networkCompleted);
@@ -52,19 +68,19 @@ QString UomRegistrationWorkflow::keyReference() const
 
 bool UomRegistrationWorkflow::configured() const
 {
-    return _store && _store->ready() && _config.valid() && _credentials &&
+    return _store && _store->ready() && (_customerProfile ? _config.validProfile() : _config.valid()) && _credentials &&
            !_credentials->value(keyReference()).isEmpty() && !_credentialBusy;
 }
 
 bool UomRegistrationWorkflow::_eligible() const
 {
-    return configured() && _writable && UomRegistration::validSerial(_device.serial) &&
+    return configured() && !_profileConflict && _writable && UomRegistration::validSerial(_device.serial) &&
            _device.serial == _config.expectedSerial && !_device.uid.isEmpty() && _device.boot != 0;
 }
 
 bool UomRegistrationWorkflow::canVerify() const
 {
-    return _eligible() && !busy() && !pending();
+    return _eligible() && !busy() && !pending() && cooldownRemainingSeconds() == 0;
 }
 
 bool UomRegistrationWorkflow::canActivate() const
@@ -79,7 +95,77 @@ bool UomRegistrationWorkflow::canDeactivate() const
 
 bool UomRegistrationWorkflow::canRetry() const
 {
-    return _eligible() && !busy() && _matchesRecord();
+    return _eligible() && !busy() && _matchesRecord() && cooldownRemainingSeconds() == 0;
+}
+
+int UomRegistrationWorkflow::cooldownRemainingSeconds() const
+{
+    return int((_cooldownDeadline.remainingTime() + 999) / 1000);
+}
+
+void UomRegistrationWorkflow::_startCooldown(int seconds)
+{
+    if (seconds > 0 && cooldownRemainingSeconds() == 0) {
+        _cooldownDeadline = QDeadlineTimer(qint64(seconds) * 1000, Qt::PreciseTimer);
+        _countdown.start();
+    }
+}
+
+QString UomRegistrationWorkflow::pendingOperation() const
+{
+    return _record ? _record->kind : QString();
+}
+
+QString UomRegistrationWorkflow::operationStage() const
+{
+    return _waiting == Waiting::DeviceRead ? QStringLiteral("reading") : (_record ? _record->stage : QString());
+}
+
+QString UomRegistrationWorkflow::operationBlockReason() const
+{
+    if (!configured()) {
+        return tr("Manufacturer connection configuration is unavailable; contact the manufacturer");
+    }
+    if (_device.uid.isEmpty()) {
+        return tr("Read the connected RID to continue");
+    }
+    if (_device.serial.isEmpty()) {
+        return tr("RID connected; aircraft SN is not bound. Bind the aircraft identity to continue");
+    }
+    if (!UomRegistration::validSerial(_device.serial) || _device.serial != _config.expectedSerial) {
+        return tr("Connected aircraft identity does not match the configuration; check the aircraft SN");
+    }
+    if (_profileConflict) {
+        return tr("The pending operation uses a different manufacturer configuration; contact the manufacturer");
+    }
+    if (busy()) {
+        return tr("An operation is in progress; wait for its result");
+    }
+    if (!_writable || !_device.boot || _device.state == 2) {
+        return tr("RID state is not ready; read RID again with the aircraft on the ground and disarmed");
+    }
+    if (cooldownRemainingSeconds() > 0) {
+        return tr("Wait %1 seconds before continuing").arg(cooldownRemainingSeconds());
+    }
+    if (pending()) {
+        return tr("A saved operation is pending; use Continue to finish it");
+    }
+    return {};
+}
+
+bool UomRegistrationWorkflow::_matchesActivationConsent(const UomRegistrationDevice& device) const
+{
+    // Each correlated RID read advances generation; consent is tied to the hardware session and identity instead.
+    return _activationConsent && _activationConsent->serial == device.serial && _activationConsent->uid == device.uid &&
+           _activationConsent->boot == device.boot && _activationConsent->revision == device.revision &&
+           _activationConsent->state == device.state;
+}
+
+bool UomRegistrationWorkflow::_canAutomaticallyActivate() const
+{
+    return _matchesActivationConsent(_device) && _matchesRecord() && _record->kind == QStringLiteral("activate") &&
+           !_record->deviceVerified &&
+           (_record->stage == QStringLiteral("verifying") || _record->stage == QStringLiteral("revalidating"));
 }
 
 QString UomRegistrationWorkflow::registrationText() const
@@ -143,6 +229,9 @@ std::optional<UomRegistration::Config> UomRegistrationWorkflow::_readConfig(cons
 
 bool UomRegistrationWorkflow::configure(const UomRegistration::Config& config, const QString& keyId)
 {
+    if (_customerProfile) {
+        return false;
+    }
     if (busy() ||
         (pending() && (config.environment != _config.environment || config.expectedSerial != _record->serial))) {
         _status = tr("Finish the pending transaction before changing its UOM environment or aircraft identity");
@@ -179,6 +268,8 @@ bool UomRegistrationWorkflow::configure(const UomRegistration::Config& config, c
             _credentials->remove(oldToken);
         }
     }
+    _activationConsent.reset();
+    _retry.stop();
     _config = config;
     if (changedProfile) {
         _registrationValue.clear();
@@ -198,14 +289,37 @@ bool UomRegistrationWorkflow::configure(const UomRegistration::Config& config, c
     return true;
 }
 
+bool UomRegistrationWorkflow::configureCustomerProfile(const UomRegistration::Config& config, const QString& keyId)
+{
+    if (_customerProfile || busy() || pending() || !_credentials || !config.validProfile() ||
+        config.environment != QStringLiteral("official")) {
+        return false;
+    }
+    QString key = keyId.trimmed();
+    key.remove(u'-');
+    if (!UomRegistration::validKey(key)) {
+        return false;
+    }
+    _customerProfile = true;
+    _config = config;
+    _config.expectedSerial.clear();
+    _credentialBusy = true;
+    _status = tr("Waiting to read the connected RID");
+    _credentials->putSession(keyReference(), key);
+    key.fill(QChar(0));
+    emit changed();
+    return true;
+}
+
 void UomRegistrationWorkflow::_credentialCompleted(const QString& reference, bool success)
 {
     if (reference == keyReference()) {
         _credentialBusy = false;
-        if (!_busy) {
-            _status = success ? (pending() ? tr("Pending transaction recovered; read the device and continue")
-                                           : tr("UOM profile ready; registration has not been verified"))
-                              : tr("Enter the key for this UOM profile to continue");
+        if (!_busy && !_profileConflict) {
+            _status = _device.uid.isEmpty() ? tr("Waiting to read the connected RID")
+                      : success ? (pending() ? tr("Pending transaction recovered; read the device and continue")
+                                             : tr("UOM profile ready; registration has not been verified"))
+                                : tr("Enter the key for this UOM profile to continue");
         }
         emit changed();
     } else if (_busy && _waiting == Waiting::Token && _record && reference == _record->tokenReference) {
@@ -225,6 +339,9 @@ void UomRegistrationWorkflow::_credentialCompleted(const QString& reference, boo
 void UomRegistrationWorkflow::observeDevice(const UomRegistrationDevice& device, bool writable)
 {
     const bool changedIdentity = device.uid != _device.uid || device.serial != _device.serial;
+    if (_activationConsent && (!_matchesActivationConsent(device) || (!writable && !_busy))) {
+        interrupt();
+    }
     _writable = writable;
     if (_busy) {
         const bool deviceOperation = _waiting == Waiting::DeviceRead || _waiting == Waiting::DeviceWrite;
@@ -239,12 +356,19 @@ void UomRegistrationWorkflow::observeDevice(const UomRegistrationDevice& device,
         }
     }
     _device = device;
+    if (_customerProfile) {
+        _config.expectedSerial = device.serial;
+    }
     if (changedIdentity) {
         _record.reset();
+        _profileConflict = false;
         _registrationValue.clear();
         _lastVerifiedAt.clear();
         _lastReportedAt.clear();
         _reportText = tr("No report acknowledgement recorded");
+        if (configured() && !_device.uid.isEmpty() && UomRegistration::validSerial(_device.serial)) {
+            _status = tr("UOM profile ready; registration has not been verified");
+        }
         _restore();
     }
     emit changed();
@@ -258,7 +382,14 @@ void UomRegistrationWorkflow::_restore()
     _record = _store->loadPendingForDevice(_device.serial, _device.uid);
     if (_record) {
         const auto savedConfig = _readConfig(_record->configJson);
-        if (savedConfig && savedConfig->scope() == _record->scope) {
+        if (_customerProfile && (!savedConfig || savedConfig->scope() != _config.scope() ||
+                                 _record->scope != _config.scope() || savedConfig->expectedSerial != _device.serial)) {
+            _profileConflict = true;
+            _status = tr("The pending operation uses a different manufacturer configuration; contact the manufacturer");
+            _restoreReport();
+            return;
+        }
+        if (!_customerProfile && savedConfig && savedConfig->scope() == _record->scope) {
             _config = *savedConfig;
             _credentialBusy = true;
             _credentials->get(keyReference());
@@ -352,6 +483,7 @@ void UomRegistrationWorkflow::activate()
         _explicitRetry = false;
         _cancelType.clear();
         _cancelReason.clear();
+        _activationConsent = _device;
         _begin(Action::Activate);
     }
 }
@@ -393,6 +525,10 @@ void UomRegistrationWorkflow::deviceRead(quint64 requestId, const UomRegistratio
         _pause(tr("The aircraft identity or activation state could not be confirmed; read the selected RID again"));
         return;
     }
+    if (_activationConsent && !_matchesActivationConsent(device)) {
+        _pause(tr("Aircraft identity or operating state changed. Confirm Continue to resume activation"));
+        return;
+    }
     _device = device;
     _continueAfterRead();
 }
@@ -411,7 +547,7 @@ void UomRegistrationWorkflow::_continueAfterRead()
         const bool revalidate = _record->stage == QStringLiteral("profile-recovery") ||
                                 _record->stage == QStringLiteral("verifying") ||
                                 _record->stage == QStringLiteral("revalidating");
-        if (!_deviceConfirmed() && !_explicitRetry) {
+        if (!_deviceConfirmed() && !_explicitRetry && !_canAutomaticallyActivate()) {
             _pause(
                 tr("Durable device state is not confirmed. Confirm Continue to revalidate the aircraft before any "
                    "device write"));
@@ -449,6 +585,7 @@ void UomRegistrationWorkflow::_verify(bool reconcile)
 
 void UomRegistrationWorkflow::_writeDevice(bool active)
 {
+    _activationConsent.reset();
     _record->deviceVerified = false;
     if (!_save(QStringLiteral("writing"))) {
         return;
@@ -547,6 +684,10 @@ void UomRegistrationWorkflow::_networkCompleted(quint64 requestId, const UomRegi
         }
     }
     if (!result.success) {
+        if (!result.localCooldown) {
+            _activationConsent.reset();
+        }
+        _startCooldown(result.retryAfterSeconds);
         if (waiting == Waiting::Report && _device.state == 0 && !result.retryable && !result.uncertain &&
             result.retryAfterSeconds == 0) {
             _explicitRetry = false;
@@ -571,7 +712,9 @@ void UomRegistrationWorkflow::_networkCompleted(quint64 requestId, const UomRegi
             }
         }
         const bool retryable = (result.retryable || result.retryAfterSeconds > 0) && waiting != Waiting::Cancel;
-        _pause(result.detail, retryable, std::max(60, result.retryAfterSeconds));
+        _pause(result.detail, retryable,
+               result.localCooldown ? result.retryAfterSeconds : std::max(60, result.retryAfterSeconds),
+               result.localCooldown);
         return;
     }
     if (waiting == Waiting::Verify || waiting == Waiting::Reconcile) {
@@ -598,7 +741,9 @@ void UomRegistrationWorkflow::_networkCompleted(quint64 requestId, const UomRegi
         } else if (_action == Action::Verify) {
             _pause(result.value == QStringLiteral("0")
                        ? tr("Registration verified; this does not activate the aircraft")
-                       : tr("Complete or renew registration on the official UOM website"));
+                       : (result.value == QStringLiteral("3")
+                              ? tr("Real-name registration has been cancelled; activation is unavailable")
+                              : tr("No valid real-name registration was found; activation is unavailable")));
         } else if (result.value == QStringLiteral("0")) {
             if (_deviceConfirmed()) {
                 _reportDevice();
@@ -610,7 +755,9 @@ void UomRegistrationWorkflow::_networkCompleted(quint64 requestId, const UomRegi
                 _store->complete(_record->id, QStringLiteral("abandoned"))) {
                 _record.reset();
             }
-            _pause(tr("Activation blocked: UOM registration is not normal"));
+            _pause(result.value == QStringLiteral("3")
+                       ? tr("Real-name registration has been cancelled; activation is unavailable")
+                       : tr("No valid real-name registration was found; activation is unavailable"));
         }
     } else if (waiting == Waiting::Report && _record) {
         const bool activeConfirmed = _device.state == 1 && result.value == QStringLiteral("1");
@@ -661,25 +808,64 @@ void UomRegistrationWorkflow::_finish(const QString& message)
     }
 }
 
-void UomRegistrationWorkflow::_pause(const QString& message, bool automatic, int seconds)
+void UomRegistrationWorkflow::_pause(const QString& message, bool automatic, int seconds, bool localCooldown)
 {
     ++_requestId;
     _busy = false;
     _waiting = Waiting::None;
     _status = message;
     _retry.stop();
-    if (automatic && pending() && ++_retryCount <= 5) {
-        _retry.start(std::max(seconds, std::min(300, 60 << (_retryCount - 1))) * 1000);
-        _status += tr("; synchronization will retry after the request cooldown");
+    const bool continueActivation = localCooldown && _canAutomaticallyActivate();
+    if (!continueActivation) {
+        _activationConsent.reset();
+    }
+    const bool retryReport = _deviceConfirmed() && _record->stage == QStringLiteral("reporting");
+    if (automatic && (continueActivation || retryReport) && ++_retryCount <= 5) {
+        _startCooldown(localCooldown ? seconds : std::max(seconds, std::min(300, 60 << (_retryCount - 1))));
+        _retry.start(cooldownRemainingSeconds() * 1000);
+    } else if (pending()) {
+        _activationConsent.reset();
+        _status += tr(". Check the aircraft and connection, then confirm Continue to resume");
     }
     emit changed();
 }
 
 void UomRegistrationWorkflow::interrupt()
 {
+    const bool wasAutomatic = automaticContinuation() || _activationConsent.has_value();
+    _activationConsent.reset();
     _retry.stop();
     _client->cancel();
-    if (_busy) {
+    if (_busy || wasAutomatic) {
         _pause(tr("Aircraft connection or operating state changed. Re-read the same RID before continuing"));
     }
+}
+
+void UomRegistrationWorkflow::clearCurrentDevice()
+{
+    _activationConsent.reset();
+    ++_requestId;
+    _busy = false;
+    _waiting = Waiting::None;
+    _action = Action::None;
+    _retry.stop();
+    _client->cancel();
+    _device = {};
+    _writable = false;
+    _record.reset();
+    _registrationValue.clear();
+    _profileConflict = false;
+    _lastVerifiedAt.clear();
+    _lastReportedAt.clear();
+    _reportText = tr("No report acknowledgement recorded");
+    _status = tr("Waiting to read the connected RID");
+    _explicitRetry = false;
+    _reconcileAfterWrite = false;
+    _retryCount = 0;
+    _cancelType.clear();
+    _cancelReason.clear();
+    if (_customerProfile) {
+        _config.expectedSerial.clear();
+    }
+    emit changed();
 }

@@ -395,6 +395,8 @@ void UomRegistrationCoreTest::encryptedWireAndPersistentLimit()
     client.send(2, config(), KEY, Operation::Verify, SERIAL);
     QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 2, 2000);
     QVERIFY(qvariant_cast<Result>(completed.at(1).at(1)).retryAfterSeconds > 0);
+    QVERIFY(qvariant_cast<Result>(completed.at(1).at(1)).localCooldown);
+    QVERIFY(!UomRegistrationClient::parseResponse(Operation::Verify, 429, {}).localCooldown);
     QCOMPARE(network.count, 1);
     auto otherEndpoint = config();
     otherEndpoint.cancelUrl.setPath(QStringLiteral("/different-cancellation-path"));
@@ -404,6 +406,35 @@ void UomRegistrationCoreTest::encryptedWireAndPersistentLimit()
     client.send(4, config(), QStringLiteral("bad-key"), Operation::ReportActive, SERIAL);
     QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 4, 2000);
     QCOMPARE(network.count, 1);
+}
+
+void UomRegistrationCoreTest::requestHistoryFailureIsNotCooldown()
+{
+    QTemporaryDir directory;
+    const QString path = directory.filePath(QStringLiteral("registration.sqlite"));
+    UomRegistrationStore store(path);
+    QVERIFY(store.ready());
+    const QString connection = QStringLiteral("uom-request-history-failure");
+    {
+        auto database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), connection);
+        database.setDatabaseName(path);
+        QVERIFY(database.open());
+        QSqlQuery query(database);
+        QVERIFY(query.exec(QStringLiteral("DROP TABLE attempts")));
+        database.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    TestNetwork network;
+    UomRegistrationClient client(&store, &network, nullptr);
+    QSignalSpy completed(&client, &UomRegistrationClient::completed);
+    client.send(1, config(), KEY, Operation::Verify, SERIAL);
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 2000);
+    const auto result = qvariant_cast<Result>(completed.at(0).at(1));
+    QVERIFY(!result.success);
+    QVERIFY(!result.retryable);
+    QVERIFY(!result.localCooldown);
+    QCOMPARE(result.retryAfterSeconds, 0);
+    QCOMPARE(network.count, 0);
 }
 
 void UomRegistrationCoreTest::cancellationHasNoHiddenSerialAndNoLateResult()

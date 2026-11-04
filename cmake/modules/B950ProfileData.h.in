@@ -1,0 +1,9 @@
+#pragma once
+
+namespace B950ProfileData {
+inline constexpr char PRODUCER_ID[] = "@_profile_producerId@";
+inline constexpr char KEY_ID[] = "@_profile_keyId@";
+inline constexpr char VERIFY_URL[] = "@_profile_verifyUrl@";
+inline constexpr char REPORT_URL[] = "@_profile_reportUrl@";
+inline constexpr char CANCEL_URL[] = "@_profile_cancelUrl@";
+}  // namespace B950ProfileData

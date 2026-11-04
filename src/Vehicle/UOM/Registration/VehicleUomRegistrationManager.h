@@ -17,6 +17,7 @@ class VehicleUomRegistrationManager final : public QObject
     QML_ELEMENT
     QML_UNCREATABLE("UOM registration belongs to a vehicle")
     Q_PROPERTY(QString productModel READ productModel CONSTANT)
+    Q_PROPERTY(bool customerProfile READ customerProfile CONSTANT)
     Q_PROPERTY(QString environment READ environment NOTIFY changed)
     Q_PROPERTY(QString producerId READ producerId NOTIFY changed)
     Q_PROPERTY(QString expectedSerial READ expectedSerial NOTIFY changed)
@@ -37,24 +38,31 @@ class VehicleUomRegistrationManager final : public QObject
     Q_PROPERTY(QString lastVerifiedAt READ lastVerifiedAt NOTIFY changed)
     Q_PROPERTY(QString lastReportedAt READ lastReportedAt NOTIFY changed)
     Q_PROPERTY(QString statusText READ statusText NOTIFY changed)
+    Q_PROPERTY(QString operationBlockReason READ operationBlockReason NOTIFY changed)
+    Q_PROPERTY(QString pendingOperation READ pendingOperation NOTIFY changed)
+    Q_PROPERTY(QString operationStage READ operationStage NOTIFY changed)
+    Q_PROPERTY(int cooldownRemainingSeconds READ cooldownRemainingSeconds NOTIFY changed)
+    Q_PROPERTY(bool automaticContinuation READ automaticContinuation NOTIFY changed)
     Q_PROPERTY(QString credentialStatus READ credentialStatus NOTIFY changed)
     Q_PROPERTY(QString safetyStatus READ safetyStatus NOTIFY changed)
 public:
     explicit VehicleUomRegistrationManager(Vehicle* vehicle);
 
-    QString productModel() const { return QStringLiteral("B950"); }
+    QString productModel() const { return {}; }
 
-    QString environment() const { return _workflow.config().environment; }
+    bool customerProfile() const;
 
-    QString producerId() const { return _workflow.config().producerId; }
+    QString environment() const { return customerProfile() ? QString() : _workflow.config().environment; }
 
-    QString expectedSerial() const { return _workflow.config().expectedSerial; }
+    QString producerId() const { return customerProfile() ? QString() : _workflow.config().producerId; }
 
-    QString verifyUrl() const { return _workflow.config().verifyUrl.toString(); }
+    QString expectedSerial() const { return customerProfile() ? QString() : _workflow.config().expectedSerial; }
 
-    QString reportUrl() const { return _workflow.config().reportUrl.toString(); }
+    QString verifyUrl() const { return customerProfile() ? QString() : _workflow.config().verifyUrl.toString(); }
 
-    QString cancelUrl() const { return _workflow.config().cancelUrl.toString(); }
+    QString reportUrl() const { return customerProfile() ? QString() : _workflow.config().reportUrl.toString(); }
+
+    QString cancelUrl() const { return customerProfile() ? QString() : _workflow.config().cancelUrl.toString(); }
 
     bool configured() const { return _workflow.configured(); }
 
@@ -62,7 +70,7 @@ public:
 
     bool pending() const { return _workflow.pending(); }
 
-    bool canConfigure() const { return !busy(); }
+    bool canConfigure() const { return !customerProfile() && !busy(); }
 
     bool canVerify() const { return _workflow.canVerify(); }
 
@@ -83,8 +91,17 @@ public:
     QString lastReportedAt() const { return _workflow.lastReportedAt(); }
 
     QString statusText() const;
+    QString operationBlockReason() const;
 
-    QString credentialStatus() const { return _workflow.credentialStatus(); }
+    QString pendingOperation() const { return _workflow.pendingOperation(); }
+
+    QString operationStage() const { return _workflow.operationStage(); }
+
+    int cooldownRemainingSeconds() const { return _workflow.cooldownRemainingSeconds(); }
+
+    bool automaticContinuation() const { return _workflow.automaticContinuation(); }
+
+    QString credentialStatus() const { return customerProfile() ? QString() : _workflow.credentialStatus(); }
 
     QString safetyStatus() const;
 
@@ -106,6 +123,7 @@ public:
 
 signals:
     void changed();
+    void identityInvalidated();
 
 private:
     void _syncDevice();

@@ -23,11 +23,15 @@ QString Config::scope() const
             .toHex());
 }
 
-bool Config::valid() const
+bool Config::validProfile() const
 {
     return (environment == QStringLiteral("integration") || environment == QStringLiteral("official")) &&
-           producerId.size() == 36 && validSerial(expectedSerial) && officialUrl(verifyUrl) && officialUrl(reportUrl) &&
-           officialUrl(cancelUrl);
+           producerId.size() == 36 && officialUrl(verifyUrl) && officialUrl(reportUrl) && officialUrl(cancelUrl);
+}
+
+bool Config::valid() const
+{
+    return validProfile() && validSerial(expectedSerial);
 }
 
 QUrl Config::endpoint(Operation operation) const

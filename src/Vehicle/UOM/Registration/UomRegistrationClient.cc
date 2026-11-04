@@ -52,13 +52,15 @@ UomRegistrationClient::~UomRegistrationClient()
     cancel();
 }
 
-void UomRegistrationClient::_reject(quint64 requestId, const QString& detail, int retryAfter)
+void UomRegistrationClient::_reject(quint64 requestId, const QString& detail, int retryAfter, bool localCooldown)
 {
     const quint64 generation = _generation;
-    QTimer::singleShot(0, this, [this, requestId, detail, retryAfter, generation]() {
+    QTimer::singleShot(0, this, [this, requestId, detail, retryAfter, localCooldown, generation]() {
         if (generation == _generation) {
-            emit completed(requestId,
-                           Result{.retryable = retryAfter > 0, .retryAfterSeconds = retryAfter, .detail = detail});
+            emit completed(requestId, Result{.retryable = retryAfter > 0,
+                                             .localCooldown = localCooldown,
+                                             .retryAfterSeconds = retryAfter,
+                                             .detail = detail});
         }
     });
 }
@@ -107,8 +109,12 @@ void UomRegistrationClient::send(quint64 requestId, const UomRegistration::Confi
     const QString throttleScope =
         QString::fromLatin1(QCryptographicHash::hash(throttleIdentity, QCryptographicHash::Sha256).toHex());
     const int retryAfter = _store->retryAfter(throttleScope, fingerprint, _now());
-    if (!_store->error().isEmpty() || retryAfter > 0) {
-        _reject(requestId, tr("Identical UOM requests must be at least one minute apart"), retryAfter);
+    if (!_store->error().isEmpty()) {
+        _reject(requestId, tr("The UOM request history could not be read safely"));
+        return;
+    }
+    if (retryAfter > 0) {
+        _reject(requestId, tr("Identical UOM requests must be at least one minute apart"), retryAfter, true);
         return;
     }
     const auto encrypted = UomRegistration::encrypt(plaintext, keyHex);

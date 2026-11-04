@@ -41,6 +41,10 @@ QGCPopupDialog {
             root.close()
         }
     }
+    Connections {
+        target: root.ridManager
+        function onIdentityInvalidated() { root.close() }
+    }
     onAccepted: {
         if (entry && ridManager) ridManager.writeParameter(entry.fact.name, input.text)
         input.clear()

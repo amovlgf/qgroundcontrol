@@ -145,7 +145,7 @@ Rectangle {
             title: qsTr("Provision factory identity")
             buttons: Dialog.Save | Dialog.Cancel
             acceptButtonEnabled: ridManager && ridManager.canProvision && ridManager.uid === targetUid
-                                 && !validationError.length && bindingConfirmed.checked
+                                 && classInput.currentIndex >= 0 && !validationError.length && bindingConfirmed.checked
             ColumnLayout {
                 width: ScreenTools.defaultFontPixelWidth * 50
                 QGCLabel {
@@ -162,13 +162,30 @@ Rectangle {
                     inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
                     placeholderText: qsTr("20 ASCII characters, no spaces")
                 }
-                QGCLabel { text: qsTr("Aircraft class (0–4)") }
+                QGCLabel { text: qsTr("Aircraft class") }
                 QGCComboBox {
                     id: classInput
                     objectName: "ridFactoryClassInput"
-                    model: ["0", "1", "2", "3", "4"]
+                    model: [qsTr("Micro"), qsTr("Light"), qsTr("Small"), qsTr("Medium"), qsTr("Large")]
                     currentIndex: -1
+                    alternateText: currentIndex < 0 ? qsTr("Select aircraft class") : ""
                     Layout.fillWidth: true
+                }
+                QGCLabel {
+                    Layout.fillWidth: true
+                    text: qsTr("Confirm the class using the aircraft label, manual or manufacturer documentation. If unsure, contact the manufacturer before binding.")
+                    wrapMode: Text.WordWrap
+                }
+                QGCButton {
+                    text: qsTr("How do I confirm the aircraft class?")
+                    onClicked: classHelp.visible = !classHelp.visible
+                }
+                QGCLabel {
+                    id: classHelp
+                    Layout.fillWidth: true
+                    visible: false
+                    text: qsTr("Aircraft class (micro, light, small, medium or large) is different from aircraft configuration, such as multirotor or fixed wing. Use the class stated by the manufacturer; do not infer it from appearance or the product model.")
+                    wrapMode: Text.WordWrap
                 }
                 QGCLabel {
                     visible: serialInput.text.length > 0 && provisionDialog.validationError.length > 0
@@ -180,7 +197,7 @@ Rectangle {
                     id: bindingConfirmed
                     objectName: "ridFactoryBindingConfirmed"
                     wrapMode: Text.WordWrap
-                    text: qsTr("I verified the UID and SN and confirm this permanent binding")
+                    text: qsTr("I verified the UID, aircraft SN and aircraft class and confirm this permanent binding")
                     Layout.fillWidth: true
                 }
                 QGCLabel {
@@ -193,6 +210,10 @@ Rectangle {
                 target: QGroundControl.multiVehicleManager
                 function onActiveVehicleChanged() { provisionDialog.close() }
             }
+            Connections {
+                target: provisionDialog.ridManager
+                function onIdentityInvalidated() { provisionDialog.close() }
+            }
             onAccepted: {
                 if (ridManager && bindingConfirmed.checked)
                     ridManager.provisionFactoryIdentity(targetUid, serialInput.text, classInput.currentIndex)
@@ -203,6 +224,7 @@ Rectangle {
     Component {
         id: maintenanceComponent
         QGCPopupDialog {
+            id: maintenanceDialog
             required property bool reset
             required property var ridManager
             title: reset ? qsTr("Restore RID defaults") : qsTr("Restart RID")
@@ -212,6 +234,10 @@ Rectangle {
                 width: ScreenTools.defaultFontPixelWidth * 45
                 wrapMode: Text.WordWrap
                 text: reset ? qsTr("Restore RID settings and restart the module? The factory product code and activation are retained.") : qsTr("Restart the RID module to apply saved settings?")
+            }
+            Connections {
+                target: maintenanceDialog.ridManager
+                function onIdentityInvalidated() { maintenanceDialog.close() }
             }
             onAccepted: { if (reset) ridManager.resetDefaults(); else ridManager.reboot() }
         }

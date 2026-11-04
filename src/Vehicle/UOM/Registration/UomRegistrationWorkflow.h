@@ -2,6 +2,7 @@
 
 #include <optional>
 
+#include <QtCore/QDeadlineTimer>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 
@@ -31,7 +32,9 @@ public:
                             UomRegistrationCredentials* credentials, QObject* parent = nullptr);
 
     bool configure(const UomRegistration::Config& config, const QString& keyId = {});
+    bool configureCustomerProfile(const UomRegistration::Config& config, const QString& keyId);
     void observeDevice(const UomRegistrationDevice& device, bool writable);
+    void clearCurrentDevice();
     void interrupt();
     void verifyRegistration();
     void activate();
@@ -53,6 +56,12 @@ public:
     bool canActivate() const;
     bool canDeactivate() const;
     bool canRetry() const;
+    QString operationBlockReason() const;
+    QString pendingOperation() const;
+    QString operationStage() const;
+    int cooldownRemainingSeconds() const;
+
+    bool automaticContinuation() const { return _retry.isActive(); }
     QString registrationText() const;
     QString deviceActivationText() const;
 
@@ -105,7 +114,10 @@ private:
     void _credentialCompleted(const QString& reference, bool success);
     bool _save(const QString& stage);
     void _finish(const QString& message);
-    void _pause(const QString& message, bool automatic = false, int seconds = 60);
+    void _pause(const QString& message, bool automatic = false, int seconds = 60, bool localCooldown = false);
+    void _startCooldown(int seconds);
+    bool _matchesActivationConsent(const UomRegistrationDevice& device) const;
+    bool _canAutomaticallyActivate() const;
     void _restore();
     void _restoreReport();
     bool _matchesRecord() const;
@@ -121,13 +133,18 @@ private:
     UomRegistration::Config _config;
     UomRegistrationDevice _device;
     std::optional<UomRegistration::Record> _record;
+    std::optional<UomRegistrationDevice> _activationConsent;
     Action _action = Action::None;
     Waiting _waiting = Waiting::None;
     QTimer _retry;
+    QTimer _countdown;
+    QDeadlineTimer _cooldownDeadline{0};
     quint64 _requestId = 0;
     bool _busy = false;
     bool _credentialBusy = false;
     bool _writable = false;
+    bool _customerProfile = false;
+    bool _profileConflict = false;
     bool _explicitRetry = false;
     bool _reconcileAfterWrite = false;
     int _retryCount = 0;

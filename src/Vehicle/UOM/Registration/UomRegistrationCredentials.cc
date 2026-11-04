@@ -121,6 +121,19 @@ void UomRegistrationCredentials::get(const QString& reference)
     _run(reference, {}, 1);
 }
 
+void UomRegistrationCredentials::putSession(const QString& reference, const QString& value)
+{
+    const quint64 generation = ++_generations[reference];
+    _values.insert(reference, value);
+    _persistent.remove(reference);
+    QTimer::singleShot(0, this, [this, reference, generation]() {
+        if (_generations.value(reference) == generation) {
+            emit completed(reference, !_values.value(reference).isEmpty(), false,
+                           tr("Stored in memory for this session only"));
+        }
+    });
+}
+
 void UomRegistrationCredentials::remove(const QString& reference)
 {
     _values.remove(reference);
