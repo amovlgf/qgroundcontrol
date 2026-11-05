@@ -3,14 +3,7 @@ name: Windows
 on:
   push:
     branches:
-      - master
-      - 'Stable*'
-    tags:
-      - 'v*'
-    paths-ignore:
-      - 'docs/**'
-  pull_request:
-  merge_group:
+      - codex/windows-v5.0.3-1258-979c630b2
   workflow_dispatch:
     inputs:
       build_type:
@@ -34,15 +27,8 @@ env:
   AQT_SOURCE: 'git+https://github.com/miurahr/aqtinstall.git@8d961e61720b3c06583517fbc68d57ec0a4e9f95'
 
 jobs:
-  changes:
-    uses: ./.github/workflows/_detect-changes.yml
-    with:
-      platform: windows
-
   build:
     name: Build ${{ matrix.arch }} ${{ matrix.build_type }}
-    needs: changes
-    if: needs.changes.outputs.should_build == 'true'
     runs-on: ${{ matrix.runs_on }}
     timeout-minutes: 120
 
@@ -57,41 +43,20 @@ jobs:
       fail-fast: false
       matrix:
         build_type: ['${{ inputs.build_type || ''Release'' }}']
-        variant: [amd64, arm64, arm64-cross]
+        variant: [amd64]
         include:
           - variant: amd64
-            runs_on: ${{ github.repository_owner == 'mavlink' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('runs-on={0}/runner=windows-x64-builder', github.run_id) || 'windows-2022' }}
+            runs_on: windows-2022
             host: windows
             arch: win64_msvc2022_64
             package: QGroundControl-installer-AMD64
             gstreamer: true
-
-          - variant: arm64
-            runs_on: windows-11-arm
-            host: windows_arm64
-            arch: win64_msvc2022_arm64
-            package: QGroundControl-installer-ARM64
-            gstreamer: true
-
-          - variant: arm64-cross
-            runs_on: ${{ github.repository_owner == 'mavlink' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && format('runs-on={0}/runner=windows-x64-builder', github.run_id) || 'windows-2022' }}
-            host: windows
-            arch: win64_msvc2022_arm64_cross_compiled
-            package: QGroundControl-installer-AMD64-ARM64
-            gstreamer: false
 
     defaults:
       run:
         shell: cmd
 
     steps:
-      - name: Enable RunsOn magic cache
-        if: github.repository_owner == 'mavlink' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.variant != 'arm64'
-        uses: runs-on/action@v2
-        with:
-          metrics: cpu,network,memory,disk,io
-          show_costs: summary
-
       - name: Harden Runner
         uses: step-security/harden-runner@v2
         with:
@@ -100,17 +65,52 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v7
         with:
-          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+          ref: 979c630b27946ac4edc604480e73a052102a9ac0
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Install Visual Studio Build Tools
-        if: github.repository_owner == 'mavlink' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && matrix.variant != 'arm64'
-        uses: ./.github/actions/install-dependencies
-        with:
-          gstreamer: 'false'
-          msvc: 'true'
-          msvc-arm64: ${{ matrix.variant == 'arm64-cross' }}
-          nsis: 'true'
+      - name: Verify source identity
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_SHA: 979c630b27946ac4edc604480e73a052102a9ac0
+          EXPECTED_SOURCE_VERSION: v5.0.3-1258-g979c630b2
+          EXPECTED_SOURCE_DATE: '2026-08-11T17:00:22+08:00'
+          BUILD_TYPE: ${{ matrix.build_type }}
+        run: |
+          $sourceSha = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $sourceSha -ne $env:EXPECTED_SOURCE_SHA) {
+            throw "Unexpected source commit: $sourceSha"
+          }
+          $sourceVersion = git describe --always --tags
+          if ($LASTEXITCODE -ne 0 -or $sourceVersion -ne $env:EXPECTED_SOURCE_VERSION) {
+            throw "Unexpected source version: $sourceVersion"
+          }
+          $sourceDate = git log -1 --format=%aI
+          if ($LASTEXITCODE -ne 0 -or $sourceDate -ne $env:EXPECTED_SOURCE_DATE) {
+            throw "Unexpected source date: $sourceDate"
+          }
+          git diff-index --quiet HEAD --
+          if ($LASTEXITCODE -ne 0) {
+            throw "Source checkout contains tracked modifications"
+          }
+          $config = Get-Content .github/build-config.json -Raw | ConvertFrom-Json
+          $manifest = [ordered]@{
+            source_commit = $sourceSha
+            source_version = $sourceVersion
+            source_date = $sourceDate
+            workflow_commit = $env:GITHUB_SHA
+            repository = $env:GITHUB_REPOSITORY
+            workflow_run = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            architecture = "AMD64"
+            build_type = $env:BUILD_TYPE
+            stable_build = $false
+            qt_version = $config.qt.version
+            gstreamer_version = $config.gstreamer.version.windows
+          }
+          $buildDir = Join-Path $env:RUNNER_TEMP "build"
+          New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+          $manifest | ConvertTo-Json | Set-Content (Join-Path $buildDir "QGroundControl-source-manifest.json") -Encoding utf8
+          Write-Host "Verified source: $sourceVersion ($sourceSha), $sourceDate"
 
       - name: Build Setup
         id: build-setup
@@ -124,9 +124,11 @@ jobs:
       - name: Configure
         uses: ./.github/actions/cmake-configure
         with:
+          stable: 'false'
           build-dir: ${{ runner.temp }}/build
           build-type: ${{ matrix.build_type }}
           extra-args: >-
+            -DQGC_STABLE_BUILD=OFF
             -DQGC_ENABLE_GST_VIDEOSTREAMING=${{ matrix.gstreamer && 'ON' || 'OFF' }}
             ${{ matrix.arch == 'win64_msvc2022_arm64_cross_compiled' && format('-DQT_HOST_PATH={0}', steps.build-setup.outputs.host_qt_root_dir) || '' }}
 
@@ -180,7 +182,10 @@ jobs:
           }
           $installDir = "${{ runner.temp }}\qgc-install-test"
           Write-Host "Installing $($installerExe.Name) to $installDir"
-          Start-Process -FilePath $installerExe.FullName -ArgumentList "/S", "/D=$installDir" -Wait -NoNewWindow
+          $installerProcess = Start-Process -FilePath $installerExe.FullName -ArgumentList "/S", "/D=$installDir" -Wait -NoNewWindow -PassThru
+          if ($installerProcess.ExitCode -ne 0) {
+            throw "Installer failed with exit code $($installerProcess.ExitCode)"
+          }
           $binary = Join-Path $installDir "bin\QGroundControl.exe"
           if (-not (Test-Path $binary)) {
             Write-Error "QGroundControl.exe not found at $binary after install"
@@ -222,14 +227,33 @@ jobs:
           binary-path: ${{ runner.temp }}\qgc-install-test\bin\QGroundControl.exe
           type: exe
 
+      - name: Record installer checksum
+        if: matrix.build_type == 'Release'
+        shell: pwsh
+        run: |
+          $buildDir = Join-Path $env:RUNNER_TEMP "build"
+          $installer = Get-Item (Join-Path $buildDir "QGroundControl-installer-AMD64.exe")
+          $manifestPath = Join-Path $buildDir "QGroundControl-source-manifest.json"
+          $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json -AsHashtable
+          $manifest.installer = $installer.Name
+          $manifest.installer_sha256 = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $manifest.installer_size_bytes = $installer.Length
+          $manifest.built_at_utc = [DateTime]::UtcNow.ToString("o")
+          $manifest | ConvertTo-Json | Set-Content $manifestPath -Encoding utf8
+
+      - name: Upload source manifest
+        if: matrix.build_type == 'Release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: QGroundControl-source-manifest-AMD64
+          path: ${{ runner.temp }}/build/QGroundControl-source-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Attest and Upload
         if: matrix.build_type == 'Release'
         uses: ./.github/actions/attest-and-upload
         with:
           artifact-name: ${{ matrix.package }}.exe
           package-name: ${{ matrix.package }}
-          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
-          aws-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-distribution-id: ${{ secrets.AWS_DISTRIBUTION_ID }}
-          upload-aws: ${{ matrix.arch == 'win64_msvc2022_arm64_cross_compiled' && 'false' || 'true' }}
+          upload-aws: 'false'
