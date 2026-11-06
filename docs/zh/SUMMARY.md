@@ -32,6 +32,7 @@
 - [载具配置](qgc-user-guide/setup_view/setup_view.md)
   - [B950 客户实名登记与激活指南](qgc-user-guide/setup_view/uom_b950_customer_guide.md)
   - [B950 直接对接 UOM](qgc-user-guide/setup_view/uom_b950.md)
+  - [UOM 网络式运行识别报送](qgc-user-guide/setup_view/uom_network_reporting.md)
   - [Summary](qgc-user-guide/setup_view/summary.md)
   - [PX4](qgc-user-guide/setup_view/px4/index.md)
     - [Actuators / Motors](qgc-user-guide/setup_view/px4/actuators.md)

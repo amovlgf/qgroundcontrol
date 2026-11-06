@@ -67,6 +67,7 @@ public:
     DEFINE_SETTINGFACT(latitudeFixed)
     DEFINE_SETTINGFACT(longitudeFixed)
     DEFINE_SETTINGFACT(altitudeFixed)
+    DEFINE_SETTINGFACT(fixedPositionConfirmed)
     DEFINE_SETTINGFACT(classificationType)
     DEFINE_SETTINGFACT(categoryEU)
     DEFINE_SETTINGFACT(classEU)

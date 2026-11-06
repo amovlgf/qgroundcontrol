@@ -10,4 +10,9 @@ private slots:
     void _identityTimeout();
     void _oldTelemetryDoesNotRenewFreshness();
     void _statusPanelLoads();
+    void _localReadinessDoesNotDependOnPlatform();
+    void _localReadinessRequiresEncodableSample_data();
+    void _localReadinessRequiresEncodableSample();
+    void _flightContextRejectsStaleAndForeignMessages();
+    void _legacyFallbackClearsV2Readiness();
 };

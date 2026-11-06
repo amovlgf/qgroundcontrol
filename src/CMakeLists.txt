@@ -80,6 +80,8 @@ target_sources(${CMAKE_PROJECT_NAME}
         pch.h
         QGCApplication.cc
         QGCApplication.h
+        UomSleepInhibitor.cc
+        UomSleepInhibitor.h
 )
 
 
@@ -145,6 +147,14 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         ToolbarModule
         VehicleSetupModule
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT ANDROID)
+    find_package(Qt6 QUIET COMPONENTS DBus)
+    if(TARGET Qt6::DBus)
+        target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::DBus)
+        target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE QGC_UOM_DBUS)
+    endif()
+endif()
 
 # ----------------------------------------------------------------------------
 # Optional/Conditional Modules

@@ -294,7 +294,8 @@ void RemoteIDSettingsUITest::_testLocationTypeShowsItsRows()
                 return false;
             }
         }
-        return verifyVisibility(QStringLiteral("gcsPositionSelectedSource"), live, context) &&
+        return verifyVisibility(QStringLiteral("settingsCheckBox_fixedPositionConfirmed"), fixed, context) &&
+               verifyVisibility(QStringLiteral("gcsPositionSelectedSource"), live, context) &&
                verifyVisibility(QStringLiteral("gcsPositionSource"), false, context);
     };
 

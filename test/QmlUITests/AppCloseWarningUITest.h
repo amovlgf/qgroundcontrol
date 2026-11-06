@@ -41,6 +41,7 @@ private slots:
     void _testCloseNeedsConfirmation_data();
     void _testCloseNeedsConfirmation();
     void _testBackKeyRaisesCloseWarning();
+    void _testPendingUomReportsWarning();
 
 private:
     /// Returns the Plan view's PlanMasterController, or nullptr (after recording

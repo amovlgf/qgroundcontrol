@@ -25,6 +25,10 @@ Rectangle {
             width: parent.width
             spacing: ScreenTools.defaultFontPixelHeight
 
+            UomReportingPanel {
+                Layout.fillWidth: true
+                manager: root.vehicle ? root.vehicle.uomManager : null
+            }
             UomRegistrationPanel {
                 Layout.fillWidth: true
                 manager: root.vehicle ? root.vehicle.uomRegistrationManager : null

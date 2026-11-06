@@ -21,6 +21,10 @@ DECLARE_SETTINGGROUP(RemoteID, "RemoteID")
     connect(basicIDType(), &Fact::rawValueChanged, this, &RemoteIDSettings::_updateBasicIDValidity);
     connect(basicIDUaType(), &Fact::rawValueChanged, this, &RemoteIDSettings::_updateBasicIDValidity);
 
+    for (Fact* coordinate : {latitudeFixed(), longitudeFixed(), altitudeFixed()}) {
+        connect(coordinate, &Fact::rawValueChanged, this, [this]() { fixedPositionConfirmed()->setRawValue(false); });
+    }
+
     _updateOperatorIDValidForRegion();
     _updateBasicIDValidity();
 }
@@ -216,6 +220,7 @@ DECLARE_SETTINGSFACT(RemoteIDSettings,  locationType)
 DECLARE_SETTINGSFACT(RemoteIDSettings,  latitudeFixed)
 DECLARE_SETTINGSFACT(RemoteIDSettings,  longitudeFixed)
 DECLARE_SETTINGSFACT(RemoteIDSettings,  altitudeFixed)
+DECLARE_SETTINGSFACT(RemoteIDSettings, fixedPositionConfirmed)
 DECLARE_SETTINGSFACT(RemoteIDSettings,  classificationType)
 DECLARE_SETTINGSFACT(RemoteIDSettings,  categoryEU)
 DECLARE_SETTINGSFACT(RemoteIDSettings,  classEU)

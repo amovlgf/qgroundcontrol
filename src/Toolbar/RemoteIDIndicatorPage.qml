@@ -124,11 +124,21 @@ ToolIndicatorPage {
                     }
                     QGCLabel { text: uom ? qsTr("Active identity revision: %1").arg(uom.identityRevision) : "" }
                     QGCLabel { visible: uom && uom.pendingRevision > 0; text: uom ? qsTr("Pending activation revision: %1").arg(uom.pendingRevision) : "" }
-                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: uom ? uom.statusText : "" }
+                    QGCLabel { visible: uom && uom.simulation; width: parent.width; wrapMode: Text.WordWrap; text: uom ? uom.statusText : "" }
                     QGCLabel {
+                        objectName: "uomToolbarLocalStatus"
                         width: parent.width
                         wrapMode: Text.WordWrap
-                        text: !uom ? "" : (uom.preflightReady ? (uom.simulation ? qsTr("Mock acknowledged; bench only") : qsTr("Network reporting ready")) : qsTr("Network reporting not ready"))
+                        textFormat: Text.PlainText
+                        text: !uom ? "" : (uom.simulation ? (uom.preflightReady ? qsTr("Mock acknowledged; bench only") : qsTr("Network reporting not ready")) : qsTr("Local readiness: %1").arg(uom.localStatusText))
+                    }
+                    QGCLabel {
+                        objectName: "uomToolbarNetworkStatus"
+                        visible: uom && !uom.simulation
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        textFormat: Text.PlainText
+                        text: uom ? qsTr("Network status: %1").arg(uom.networkStatusText) : ""
                     }
                     QGCLabel { visible: uom && uom.lastAckAgeMs < 4294967295; text: uom ? qsTr("Last response: %1 s ago").arg((uom.lastAckAgeMs / 1000).toFixed(1)) : "" }
                 }

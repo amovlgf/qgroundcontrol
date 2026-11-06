@@ -4,6 +4,7 @@
 #include <QtCore/QRegularExpression>
 #include <QtCore/QScopeGuard>
 #include <QtCore/QTemporaryDir>
+#include <QtQml/QQmlProperty>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickWindow>
 #include <QtTest/QTest>
@@ -13,6 +14,7 @@
 #include "MultiVehicleManager.h"
 #include "ParameterManager.h"
 #include "PlanMasterController.h"
+#include "UomReportingService.h"
 #include "Vehicle.h"
 
 UT_REGISTER_TEST(AppCloseWarningUITest, TestLabel::Integration, TestLabel::MissionManager)
@@ -418,4 +420,32 @@ void AppCloseWarningUITest::_testBackKeyRaisesCloseWarning()
             QVERIFY2(rejectDialog(), "Failed to reject the close warning");
             QVERIFY2(_window->isVisible(), "Window closed after rejecting the close warning");
         });
+}
+
+void AppCloseWarningUITest::_testPendingUomReportsWarning()
+{
+    startUI();
+    if (QTest::currentTestFailed()) {
+        return;
+    }
+    const auto cleanup = qScopeGuard([this]() {
+        closeUIWindow();
+        destroyUIEngine();
+    });
+    // QQmlProperty::write removes the live binding; QObject::setProperty is overwritten by each service heartbeat.
+    QVERIFY(QQmlProperty::write(_window, QStringLiteral("_uomReportingPending"), true));
+    auto* reporting = UomReportingService::instance();
+    emit reporting->changed();
+    QVERIFY(_window->property("_uomReportingPending").toBool());
+    QVariant needsConfirmation;
+    QVERIFY(QMetaObject::invokeMethod(_window, "_closeNeedsConfirmation", Q_RETURN_ARG(QVariant, needsConfirmation)));
+    QVERIFY(needsConfirmation.toBool());
+    QVERIFY(clickToolSelectDropdownButton(QStringLiteral("toolbar_viewClose")));
+    QVERIFY(waitForDialog(QStringLiteral("Pending UOM Reports")));
+    QVERIFY(rejectDialog());
+    QVERIFY(_window && _window->isVisible());
+    QVERIFY(clickToolSelectDropdownButton(QStringLiteral("toolbar_viewClose")));
+    QVERIFY(waitForDialog(QStringLiteral("Pending UOM Reports")));
+    QVERIFY(acceptDialog());
+    QTRY_VERIFY_WITH_TIMEOUT(_window && !_window->isVisible(), TestTimeout::mediumMs());
 }

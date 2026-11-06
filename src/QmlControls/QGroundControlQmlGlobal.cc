@@ -18,6 +18,7 @@
 #include "QGCMapEngineManager.h"
 #include "QGCVersionCheck.h"
 #include "SettingsManager.h"
+#include "UomReportingService.h"
 #include "VideoManager.h"
 #ifndef QGC_NO_SERIAL_LINK
 #include "SerialPortManager.h"
@@ -56,6 +57,9 @@ QGroundControlQmlGlobal::QGroundControlQmlGlobal(QObject *parent)
     // We clear the parent on this object since we run into shutdown problems caused by hybrid qml app. Instead we let it leak on shutdown.
     // setParent(nullptr);
 
+    connect(UomReportingService::instance(), &UomReportingService::changed, this,
+            &QGroundControlQmlGlobal::uomReportingPendingChanged);
+
     // Load last coordinates and zoom from config file
     QSettings settings;
     settings.beginGroup(_flightMapPositionSettingsGroup);
@@ -88,6 +92,11 @@ QGroundControlQmlGlobal::QGroundControlQmlGlobal(QObject *parent)
 
 QGroundControlQmlGlobal::~QGroundControlQmlGlobal()
 {
+}
+
+bool QGroundControlQmlGlobal::uomReportingPending() const
+{
+    return UomReportingService::instance()->hasOutstandingWork();
 }
 
 GPSManager* QGroundControlQmlGlobal::gpsManager() const

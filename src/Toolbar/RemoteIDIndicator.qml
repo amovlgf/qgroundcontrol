@@ -70,6 +70,9 @@ Item {
         if (!commsFlag || !armFlag || emergencyDeclared) {
             return RemoteIDIndicator.RIDState.ERROR
         }
+        if (activeVehicle.uomManager && activeVehicle.uomManager.supported && activeVehicle.uomManager.networkFault) {
+            return RemoteIDIndicator.RIDState.WARNING
+        }
         if (!gpsFlag || !basicIDFlag) {
             return RemoteIDIndicator.RIDState.WARNING
         }

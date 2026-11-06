@@ -71,3 +71,11 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE QGCUomRegistrationCore)
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE UOM/Registration/VehicleUomRegistrationManager.cc
                                              UOM/Registration/VehicleUomRegistrationManager.h
 )
+
+add_subdirectory(UOM/Reporting)
+target_sources(QGCUomReportingCore PRIVATE UOM/Reporting/UomReportStore.cc UOM/Reporting/UomReportStore.h)
+target_link_libraries(QGCUomReportingCore PUBLIC Qt6::Sql)
+add_library(QGCUomReportingService STATIC UOM/Reporting/UomReportingService.cc UOM/Reporting/UomReportingService.h)
+set_target_properties(QGCUomReportingService PROPERTIES AUTOMOC ON)
+target_link_libraries(QGCUomReportingService PUBLIC QGCUomReportingCore QGCUomRegistrationCore)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE QGCUomReportingService)

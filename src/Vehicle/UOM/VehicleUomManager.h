@@ -4,6 +4,7 @@
 #include <QtQmlIntegration/QtQmlIntegration>
 
 #include "MAVLinkMessageType.h"
+#include "UomReportingService.h"
 #include "UomSession.h"
 
 class Vehicle;
@@ -13,6 +14,16 @@ class VehicleUomManager final : public QObject
     Q_OBJECT
     QML_ELEMENT
     QML_UNCREATABLE("")
+    Q_PROPERTY(bool localReady READ localReady NOTIFY changed)
+    Q_PROPERTY(bool networkFault READ networkFault NOTIFY changed)
+    Q_PROPERTY(bool networkHealthy READ networkHealthy NOTIFY changed)
+    Q_PROPERTY(bool protocolCompatible READ protocolCompatible NOTIFY changed)
+    Q_PROPERTY(bool broadcastReady READ broadcastReady NOTIFY changed)
+    Q_PROPERTY(QString localStatusText READ localStatusText NOTIFY changed)
+    Q_PROPERTY(QString networkStatusText READ networkStatusText NOTIFY changed)
+    Q_PROPERTY(QString reportingModel READ reportingModel NOTIFY changed)
+    Q_PROPERTY(qint64 pendingReports READ pendingReports NOTIFY changed)
+    Q_PROPERTY(qint64 heldReports READ heldReports NOTIFY changed)
     Q_PROPERTY(bool supported READ supported NOTIFY changed)
     Q_PROPERTY(bool required READ required NOTIFY changed)
     Q_PROPERTY(bool simulation READ simulation NOTIFY changed)
@@ -39,7 +50,22 @@ public:
 
     bool simulation() const { return _session->environment() == Uom::Environment::Mock; }
 
-    bool preflightReady() const { return _session->officialReady() || _session->simulationReady(); }
+    bool preflightReady() const { return simulation() ? _session->simulationReady() : localReady(); }
+
+    bool localReady() const;
+    bool networkHealthy() const;
+    bool networkFault() const;
+
+    bool protocolCompatible() const { return _protocolVersion == 2 && (_capabilities & 3) == 3; }
+
+    bool broadcastReady() const;
+    QString localStatusText() const;
+    QString networkStatusText() const;
+    QString reportingModel() const;
+    qint64 pendingReports() const;
+    qint64 heldReports() const;
+    Q_INVOKABLE void reloadReportingConfiguration();
+    Q_INVOKABLE bool exportReportingDiagnostics(const QUrl& path) const;
 
     bool activated() const { return _session->identity().activated; }
 
@@ -49,7 +75,7 @@ public:
 
     QString moduleId() const { return _session->identity().moduleId; }
 
-    QString statusText() const { return _session->detail(); }
+    QString statusText() const { return simulation() ? _session->detail() : localStatusText(); }
 
     QString identityStatus() const { return _identityStatus; }
 
@@ -61,7 +87,7 @@ public:
 
     quint32 pendingRevision() const { return _pendingRevision; }
 
-    quint32 lastAckAgeMs() const { return _session->lastAckAgeMs(); }
+    quint32 lastAckAgeMs() const;
 
 signals:
     void changed();
@@ -73,11 +99,35 @@ private:
     void _requestIdentity();
     void _sendStatus();
     void _updateTelemetry();
+    void _captureReport();
+    UomReporting::Sample _reportSample(const UomReportingService::Binding& binding) const;
+    void _handleFlightStatus(const mavlink_message_t& message);
+    bool _reportDataValid() const;
+    bool _reportSampleValid() const;
+    bool _reportingAvailable() const;
+    bool _realAircraft() const;
+    quint32 _sampleAgeMs() const;
     void _handleIdentity(const mavlink_message_t& message);
     Vehicle* _vehicle;
     UomProvider* _provider;
     UomSession* _session;
     QTimer _timer;
+    UomReportingService* _reporting = nullptr;
+    quint8 _requestedProtocol = 2;
+    quint8 _protocolVersion = 0;
+    quint32 _capabilities = 0;
+    quint64 _flightReceivedUs = 0;
+    quint64 _flightSourceUs = 0;
+    quint64 _takeoffUtcUs = 0;
+    quint32 _flightSequence = 0;
+    quint8 _flightFlags = 0;
+    quint64 _lastCaptureUs = 0;
+    double _altitudeEllipsoid = 0;
+    std::optional<double> _groundSpeed;
+    std::optional<double> _trackDegrees;
+    bool _ellipsoidValid = false;
+    bool _streamRequested = false;
+    bool _wasRecording = false;
     Uom::Telemetry _telemetry;
     QString _identityStatus;
     quint64 _sessionId = 0;

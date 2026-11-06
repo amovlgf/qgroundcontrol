@@ -36,6 +36,8 @@
 #include "QGCNetworkHelper.h"
 #include "QGCVersionCheck.h"
 #include "SettingsManager.h"
+#include "UomReportingService.h"
+#include "UomSleepInhibitor.h"
 #include "Vehicle.h"
 #include "VideoManager.h"
 #include "qgc_version.h"
@@ -289,9 +291,11 @@ bool QGCApplication::_initQmlRootWindow()
 
 void QGCApplication::_initForNormalAppBoot()
 {
+    (void) UomReportingService::instance();
     (void) _initVideo();
 
     (void) _initQmlRootWindow();
+    new UomSleepInhibitor(MultiVehicleManager::instance(), this);
 
     AudioOutput::instance()->init(SettingsManager::instance()->appSettings()->audioVolume(),
                                   SettingsManager::instance()->appSettings()->audioMuted());
@@ -655,6 +659,9 @@ QGCImageProvider* QGCApplication::qgcImageProvider()
 
 void QGCApplication::shutdown()
 {
+    if (auto* reporting = findChild<UomReportingService*>(QString{}, Qt::FindDirectChildrenOnly)) {
+        reporting->shutdown();
+    }
     GPSManager::instance()->shutdown();
     qCDebug(QGCApplicationLog) << "Exit";
 

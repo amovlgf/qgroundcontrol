@@ -12409,6 +12409,16 @@ VTOL</translation>
       <source>Additional errors received</source>
       <translation type="unfinished">Additional errors received</translation>
     </message>
+    <message>
+      <location filename="../src/MainWindow/MainWindow.qml" line="316" />
+      <source>Pending UOM Reports</source>
+      <translation>待确认的 UOM 报文</translation>
+    </message>
+    <message>
+      <location filename="../src/MainWindow/MainWindow.qml" line="317" />
+      <source>Saved UOM records still require delivery or review. Closing pauses automatic delivery of eligible reports until QGC is reopened. Are you sure you want to exit?</source>
+      <translation>已保存的 UOM 记录仍需发送或审查。退出后，可报送数据的自动发送将暂停，重新打开 QGC 后继续。确定退出吗？</translation>
+    </message>
   </context>
   <context>
     <name>MapProviderSettings</name>
@@ -18642,6 +18652,16 @@ sudo apt-get 移除调制解调器管理器</translation>
       <source>Manage activation in UOM registration</source>
       <translation>在 UOM 登记页面管理激活</translation>
     </message>
+    <message>
+      <location filename="../src/Toolbar/RemoteIDIndicatorPage.qml" line="133" />
+      <source>Local readiness: %1</source>
+      <translation>本地准备：%1</translation>
+    </message>
+    <message>
+      <location filename="../src/Toolbar/RemoteIDIndicatorPage.qml" line="141" />
+      <source>Network status: %1</source>
+      <translation>网络状态：%1</translation>
+    </message>
   </context>
   <context>
     <name>RoverChecklist</name>
@@ -23302,6 +23322,459 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
     <message>
       <source>The UOM request history could not be read safely</source>
       <translation>无法可靠读取 UOM 请求记录，操作已停止</translation>
+    </message>
+  </context>
+  <context>
+    <name>UomReportClient</name>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportClient.cc" line="45" />
+      <source>UOM request is already pending or capacity is exhausted</source>
+      <translation>UOM 请求正在处理中，或已达到并发上限</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportClient.cc" line="50" />
+      <source>Invalid UOM reporting profile, identity, payload or credential</source>
+      <translation>UOM 报送配置、身份、报文或凭据无效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportClient.cc" line="93" />
+      <source>UOM response exceeded the size limit</source>
+      <translation>UOM 响应超过大小限制</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportClient.cc" line="95" />
+      <source>UOM report has no confirmed response</source>
+      <translation>尚未收到 UOM 对本次报文的确认</translation>
+    </message>
+  </context>
+  <context>
+    <name>UomReportingPanel</name>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="23" />
+      <source>UOM flight reporting</source>
+      <translation>UOM 飞行动态报送</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="28" />
+      <source>Reporting runs automatically while QGC is open. Local readiness and platform acknowledgements are shown separately.</source>
+      <translation>QGC 运行期间自动报送。本地准备状态与平台确认状态分别显示。</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="38" />
+      <source>Aircraft SN</source>
+      <translation>整机 SN</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="44" />
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="82" />
+      <source>Unknown</source>
+      <translation>未知</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="50" />
+      <source>Device activation</source>
+      <translation>设备激活状态</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="54" />
+      <source>Activated</source>
+      <translation>已激活</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="54" />
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="72" />
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="92" />
+      <source>Not confirmed</source>
+      <translation>尚未确认</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="58" />
+      <source>Local readiness</source>
+      <translation>本地准备状态</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="63" />
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="100" />
+      <source>Ready</source>
+      <translation>已就绪</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="63" />
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="100" />
+      <source>Not ready</source>
+      <translation>未就绪</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="67" />
+      <source>Network reporting</source>
+      <translation>网络报送状态</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="72" />
+      <source>Confirmed</source>
+      <translation>已确认</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="76" />
+      <source>Reporting model</source>
+      <translation>报送机型</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="88" />
+      <source>Flight-controller protocol</source>
+      <translation>飞控协议</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="92" />
+      <source>Compatible</source>
+      <translation>兼容</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="96" />
+      <source>RID broadcast</source>
+      <translation>RID 广播状态</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="104" />
+      <source>Pending reports</source>
+      <translation>待确认报文</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="113" />
+      <source>Held reports</source>
+      <translation>暂存待核查报文</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="122" />
+      <source>Last platform acknowledgement</source>
+      <translation>最近平台确认</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="127" />
+      <source>%1 seconds ago</source>
+      <translation>%1 秒前</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="127" />
+      <source>None recorded</source>
+      <translation>暂无确认记录</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="134" />
+      <source>Connect an aircraft to inspect local readiness</source>
+      <translation>连接飞机后可查看本地准备状态</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="142" />
+      <source>Saved reports continue in the background</source>
+      <translation>已保存报文继续在后台处理</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="153" />
+      <source>Fixed operator position: verify this operating site and its WGS84 ellipsoid altitude. Zero values are valid. Editing a coordinate clears the confirmation.</source>
+      <translation>固定操作站位置：请核对当前作业地点坐标及 WGS84 椭球高度。零值有效；修改任一坐标会撤销确认。</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="161" />
+      <source>Latitude</source>
+      <translation>纬度</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="170" />
+      <source>Longitude</source>
+      <translation>经度</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="179" />
+      <source>WGS84 ellipsoid altitude</source>
+      <translation>WGS84 椭球高度</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="192" />
+      <source>I verified the fixed position and WGS84 ellipsoid altitude for this site</source>
+      <translation>我已核对当前作业地点的固定坐标及 WGS84 椭球高度</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="201" />
+      <source>Reload manufacturer configuration</source>
+      <translation>重新加载厂家配置</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="209" />
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="226" />
+      <source>Export reporting diagnostics</source>
+      <translation>导出报送诊断</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="217" />
+      <source>Diagnostic exports contain reporting status and counters, without credentials or raw flight payloads.</source>
+      <translation>诊断导出包含报送状态及计数，不含凭据或原始飞行报文。</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="225" />
+      <source>JSON files (*.json)</source>
+      <translation>JSON 文件 (*.json)</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="230" />
+      <source>Reporting diagnostics</source>
+      <translation>报送诊断</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="230" />
+      <source>The diagnostic file could not be saved.</source>
+      <translation>无法保存诊断文件。</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/VehicleSetup/UomReportingPanel.qml" line="149" />
+      <source>Operator position source</source>
+      <translation>控制站位置来源</translation>
+    </message>
+  </context>
+  <context>
+    <name>UomReportingService</name>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportingService.cc" line="394" />
+      <source>Reporting storage queue overflowed; a data gap is recorded</source>
+      <translation>报送存储队列已满，已记录数据缺口</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportingService.cc" line="474" />
+      <source>Manufacturer reporting profile is not configured</source>
+      <translation>尚未配置厂家报送资料</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportingService.cc" line="487" />
+      <source>Manufacturer reporting profile is invalid</source>
+      <translation>厂家报送配置无效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportingService.cc" line="496" />
+      <source>Reporting aircraft bindings are invalid or duplicated</source>
+      <translation>报送飞机绑定无效或重复</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportingService.cc" line="503" />
+      <source>An explicit aircraft binding is required for reporting</source>
+      <translation>报送前必须明确绑定飞机</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/Reporting/UomReportingService.cc" line="509" />
+      <source>Manufacturer reporting profile is empty</source>
+      <translation>厂家报送配置为空</translation>
+    </message>
+  </context>
+  <context>
+    <name>VehicleUomManager</name>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="148" />
+      <source>No activation error</source>
+      <translation>激活无错误</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="150" />
+      <source>Activation staged; manually power off and on to apply</source>
+      <translation>激活已暂存，请手动断电重启使其生效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="152" />
+      <source>This authorization is already active</source>
+      <translation>此授权已经生效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="154" />
+      <source>Invalid activation package format</source>
+      <translation>激活包格式无效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="156" />
+      <source>Activation signing key is not trusted</source>
+      <translation>激活签名密钥不受信任</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="158" />
+      <source>Activation signature verification failed</source>
+      <translation>激活签名校验失败</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="160" />
+      <source>Activation package belongs to another device</source>
+      <translation>激活包属于其他设备</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="162" />
+      <source>Activation identity is invalid</source>
+      <translation>激活身份无效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="164" />
+      <source>Activation revision is older than the current revision</source>
+      <translation>激活版本早于当前版本</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="166" />
+      <source>Activation revision conflicts with another package</source>
+      <translation>激活版本与其他激活包冲突</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="168" />
+      <source>Activation could not be saved to RID storage</source>
+      <translation>无法将激活信息保存到 RID 存储</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="170" />
+      <source>RID is busy; retry activation later</source>
+      <translation>RID 正忙，请稍后重试激活</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="172" />
+      <source>Unknown activation result: %1</source>
+      <translation>未知激活结果：%1</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="199" />
+      <source>Waiting for aircraft identity</source>
+      <translation>等待读取飞机身份</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="233" />
+      <source>Aircraft identity expired; reading again</source>
+      <translation>飞机身份信息已过期，正在重新读取</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="239" />
+      <source>Identity read timed out</source>
+      <translation>身份读取超时</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="368" />
+      <source>Firmware upgrade required for independent UOM readiness</source>
+      <translation>需升级固件以支持独立的 UOM 就绪状态</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="376" />
+      <source>Identity rejected (result %1, protocol %2)</source>
+      <translation>身份被拒绝（结果 %1，协议 %2）</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="404" />
+      <source>Aircraft identity fields or digest are invalid</source>
+      <translation>飞机身份字段或摘要无效</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="409" />
+      <source>RID identity verified and bound to this aircraft</source>
+      <translation>RID 身份已验证并绑定到当前飞机</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="410" />
+      <source>RID activation required through its Wi-Fi page</source>
+      <translation>需要通过 RID 的 Wi-Fi 页面完成激活</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="593" />
+      <source>Waiting for verified aircraft identity</source>
+      <translation>等待已验证的飞机身份</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="596" />
+      <source>RID activation required</source>
+      <translation>需要激活 RID</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="599" />
+      <source>Matching flight controller firmware is required for UOM readiness and flight recovery</source>
+      <translation>UOM 就绪判断与航次恢复需要配套飞控固件</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="603" />
+      <source>No manufacturer reporting profile is bound to this aircraft</source>
+      <translation>当前飞机尚未绑定厂家报送配置</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="606" />
+      <source>Aircraft classification does not match the manufacturer reporting profile</source>
+      <translation>航空器类别与厂家报送配置不一致</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="609" />
+      <source>Simulation and replay data cannot enter the official reporting service</source>
+      <translation>仿真及回放数据不能进入正式报送服务</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="612" />
+      <source>Reporting credentials are unavailable in the system keyring</source>
+      <translation>系统密钥环中的报送凭据不可用</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="615" />
+      <source>Reporting storage or background service is unavailable</source>
+      <translation>报送存储或后台服务不可用</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="618" />
+      <source>Fresh GNSS, ellipsoid height, flight context and a confirmed fixed control station are required</source>
+      <translation>需要有效的新 GNSS 数据、椭球高度、航次信息，以及已确认的固定操作站坐标</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="621" />
+      <source>RID broadcast self-check is not ready</source>
+      <translation>RID 广播自检尚未就绪</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="623" />
+      <source>Local reporting is ready</source>
+      <translation>本地报送准备已就绪</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="630" />
+      <source>Platform rejected reporting; contact manufacturer maintenance</source>
+      <translation>平台拒绝报送，请联系厂家维护</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="633" />
+      <source>UOM has accepted current flight data</source>
+      <translation>UOM 已确认当前飞行数据</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="636" />
+      <source>Network reporting is unavailable; samples are cached</source>
+      <translation>网络报送暂不可用，采样数据已缓存</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="637" />
+      <source>Reporting storage fault; reliable caching is unavailable</source>
+      <translation>报送存储故障，无法保证缓存可靠保存</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="640" />
+      <source>Reporting started; waiting for platform confirmation</source>
+      <translation>已开始报送，等待平台确认</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="643" />
+      <source>Operation ended with reports awaiting delivery</source>
+      <translation>本次作业已结束，仍有报文等待发送</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="646" />
+      <source>Ground or unverified records are retained locally for review</source>
+      <translation>地面或未经验证的记录已保留在本地，等待核查</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="648" />
+      <source>Waiting for operation</source>
+      <translation>等待作业开始</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="659" />
+      <source>Isolated test: %1</source>
+      <translation>隔离测试：%1</translation>
+    </message>
+    <message>
+      <location filename="../src/Vehicle/UOM/VehicleUomManager.cc" line="662" />
+      <source>Commissioning: %1</source>
+      <translation>平台联调：%1</translation>
     </message>
   </context>
 </TS>

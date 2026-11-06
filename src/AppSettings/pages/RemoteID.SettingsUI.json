@@ -109,6 +109,10 @@
                     "showWhen": "locationIsFixed"
                 },
                 {
+                    "setting": "remoteIDSettings.fixedPositionConfirmed",
+                    "showWhen": "locationIsFixed"
+                },
+                {
                     "comment": "The position Live GNSS sends, shown as rows of this section; the GNSS Receiver page chooses its source.",
                     "control": "component",
                     "component": "GcsPositionStatus",

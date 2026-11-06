@@ -24,6 +24,8 @@ private slots:
     void _euRegionForcesSendOperatorID();
     void _faaRegionForcesLiveLocation();
     void _legacyOperatorIDMigration();
+    void _fixedPositionConfirmation_data();
+    void _fixedPositionConfirmation();
 
 private:
     QVariant _savedOperatorIDEU;
@@ -35,4 +37,8 @@ private:
     QVariant _savedBasicID;
     QVariant _savedBasicIDType;
     QVariant _savedBasicIDUaType;
+    QVariant _savedLatitudeFixed;
+    QVariant _savedLongitudeFixed;
+    QVariant _savedAltitudeFixed;
+    QVariant _savedFixedPositionConfirmed;
 };

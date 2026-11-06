@@ -6092,6 +6092,30 @@
       <source>eu,class,ce marking</source>
       <translation type="unfinished">eu,class,ce marking</translation>
     </message>
+    <message>
+      <location filename="../src/Settings/RemoteID.SettingsGroup.json" />
+      <source>Confirm the fixed operator position and WGS84 ellipsoid altitude.</source>
+      <extracomment>QGC.MetaData.Facts[fixedPositionConfirmed].shortDesc</extracomment>
+      <translation>确认固定操作站坐标及 WGS84 椭球高度。</translation>
+    </message>
+    <message>
+      <location filename="../src/Settings/RemoteID.SettingsGroup.json" />
+      <source>I verified these coordinates for the current operating site, including WGS84 ellipsoid altitude. Editing any coordinate clears this confirmation. Zero is a valid coordinate or altitude.</source>
+      <extracomment>QGC.MetaData.Facts[fixedPositionConfirmed].longDesc</extracomment>
+      <translation>我已核对当前作业地点坐标及 WGS84 椭球高度。修改任一坐标会撤销确认。经纬度和高度均允许为零。</translation>
+    </message>
+    <message>
+      <location filename="../src/Settings/RemoteID.SettingsGroup.json" />
+      <source>I verified the fixed position and WGS84 ellipsoid altitude</source>
+      <extracomment>QGC.MetaData.Facts[fixedPositionConfirmed].label</extracomment>
+      <translation>我已核对固定坐标及 WGS84 椭球高度</translation>
+    </message>
+    <message>
+      <location filename="../src/Settings/RemoteID.SettingsGroup.json" />
+      <source>uom,fixed position,confirmation,ellipsoid</source>
+      <extracomment>QGC.MetaData.Facts[fixedPositionConfirmed].keywords</extracomment>
+      <translation>UOM,固定坐标,确认,椭球</translation>
+    </message>
   </context>
   <context>
     <name>Mavlink.SettingsGroup.json</name>

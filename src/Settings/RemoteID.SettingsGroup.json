@@ -190,6 +190,15 @@
             "keywords": "altitude,fixed position"
         },
         {
+            "name": "fixedPositionConfirmed",
+            "shortDesc": "Confirm the fixed operator position and WGS84 ellipsoid altitude.",
+            "longDesc": "I verified these coordinates for the current operating site, including WGS84 ellipsoid altitude. Editing any coordinate clears this confirmation. Zero is a valid coordinate or altitude.",
+            "type": "bool",
+            "default": false,
+            "label": "I verified the fixed position and WGS84 ellipsoid altitude",
+            "keywords": "uom,fixed position,confirmation,ellipsoid"
+        },
+        {
             "name": "classificationType",
             "comment": "enumValues must stay in sync with MAVLink MAV_ODID_CLASSIFICATION_TYPE",
             "shortDesc": "Classification standard to use for Remote ID.",

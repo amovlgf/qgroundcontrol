@@ -88,6 +88,7 @@ public:
     Q_PROPERTY(QString qgcAppDate       READ qgcAppDate         CONSTANT)
     Q_PROPERTY(bool    qgcDailyBuild    READ qgcDailyBuild      CONSTANT)
     Q_PROPERTY(QString newStableVersion READ newStableVersion NOTIFY newStableVersionChanged)
+    Q_PROPERTY(bool uomReportingPending READ uomReportingPending NOTIFY uomReportingPendingChanged)
 
     Q_PROPERTY(qreal zOrderTopMost              READ zOrderTopMost              CONSTANT) ///< z order for top most items, toolbar, main window sub view
     Q_PROPERTY(qreal zOrderWidgets              READ zOrderWidgets              CONSTANT) ///< z order value to widgets, for example: zoom controls, hud widgetss
@@ -210,6 +211,7 @@ public:
     static QString qgcVersion();
     static QString qgcAppDate();
     static QString newStableVersion();
+    bool uomReportingPending() const;
 #ifdef QGC_DAILY_BUILD
     static bool qgcDailyBuild() { return true; }
 #else
@@ -222,6 +224,7 @@ signals:
     void flightMapPositionChanged       (QGeoCoordinate flightMapPosition);
     void flightMapZoomChanged           (double flightMapZoom);
     void newStableVersionChanged();
+    void uomReportingPendingChanged();
     void showMessageDialogRequested     (QObject* owner, QString title, QString text, int buttons, QJSValue acceptFunction, QJSValue closeFunction);
 
 private:

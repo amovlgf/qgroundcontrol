@@ -43,6 +43,7 @@ qt_add_qml_module(
               RidParameterDialog.qml
               SetupParameterEditor.qml
               UomRegistrationPanel.qml
+              UomReportingPanel.qml
               VehicleConfigView.qml
               VehicleSummary.qml
     NO_PLUGIN

@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 
+#include <QtCore/QTemporaryDir>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlComponent>
 #include <QtQuick/QQuickItem>
@@ -10,6 +11,7 @@
 #include <QtTest/QTest>
 
 #include "MockLink.h"
+#include "QGCFileDialogController.h"
 #include "Vehicle.h"
 
 UT_REGISTER_TEST(RidManagementUITest, TestLabel::Integration)
@@ -437,4 +439,69 @@ void RidManagementUITest::_ridDialogIdentityInvalidation()
             QCOMPARE(manager->property("operationCount").toInt(), 0);
             QVERIFY(page->setProperty("vehicle", QVariant::fromValue(vehicle)));
         });
+}
+
+void RidManagementUITest::_uomReportingStateSeparation()
+{
+    runWithMockLink([] { return MockLink::startPX4MockLink(); },
+                    [&](QPointer<MockLink>, Vehicle*) {
+                        navigateToConfigureView();
+                        if (QTest::currentTestFailed()) {
+                            return;
+                        }
+                        QVERIFY(clickSidebarButton(QStringLiteral("vehicleConfig_ridButton")));
+                        auto* panel = findItem(_rootItem, QStringLiteral("uomReportingPanel"));
+                        QVERIFY(panel);
+                        QQmlComponent component(_engine);
+                        component.setData(R"qml(
+            import QtQml
+            QtObject {
+                property bool localReady: true
+                property bool networkHealthy: false
+                property bool activated: true
+                property bool protocolCompatible: true
+                property bool broadcastReady: true
+                property string aircraftId: "ALABB950B950U4400001"
+                property string reportingModel: "QGC network reporting"
+                property string localStatusText: "Local state verified"
+                property string networkStatusText: "Waiting for platform acknowledgement"
+                property int pendingReports: 4
+                property int heldReports: 2
+                property double lastAckAgeMs: 4294967295
+                property bool reloadCalled: false
+                property url exportedPath: ""
+                function reloadReportingConfiguration() { reloadCalled = true }
+                function exportReportingDiagnostics(path) { exportedPath = path; return true }
+            }
+        )qml",
+                                          QUrl());
+                        QVERIFY2(component.isReady(), qPrintable(component.errorString()));
+                        std::unique_ptr<QObject> manager(component.create());
+                        QVERIFY(manager);
+                        QVERIFY(panel->setProperty("manager", QVariant::fromValue(manager.get())));
+                        const auto labelText = [this](const char* name) {
+                            const auto* item = findItem(_rootItem, QString::fromLatin1(name));
+                            return item ? item->property("text").toString() : QString();
+                        };
+                        QCOMPARE(labelText("uomReportingLocalReady"), QStringLiteral("Ready"));
+                        QCOMPARE(labelText("uomReportingNetworkHealthy"), QStringLiteral("Not confirmed"));
+                        QCOMPARE(labelText("uomReportingPendingCount"), QStringLiteral("4"));
+                        QCOMPARE(labelText("uomReportingHeldCount"), QStringLiteral("2"));
+                        QCOMPARE(labelText("uomReportingLastAck"), QStringLiteral("None recorded"));
+                        QVERIFY(manager->setProperty("networkHealthy", true));
+                        QVERIFY(manager->setProperty("lastAckAgeMs", 2000));
+                        QTRY_COMPARE(labelText("uomReportingNetworkHealthy"), QStringLiteral("Confirmed"));
+                        QCOMPARE(labelText("uomReportingLocalReady"), QStringLiteral("Ready"));
+                        QCOMPARE(labelText("uomReportingLastAck"), QStringLiteral("2 seconds ago"));
+                        QVERIFY(clickButtonScrolled(QStringLiteral("uomReloadReportingConfiguration"),
+                                                    QStringLiteral("ridManagementFlickable")));
+                        QVERIFY(manager->property("reloadCalled").toBool());
+                        QTemporaryDir directory;
+                        QVERIFY(directory.isValid());
+                        const QString path = directory.filePath(QStringLiteral("reporting.json"));
+                        QGCFileDialogController::setTestNextFileForAccept(path);
+                        QVERIFY(clickButtonScrolled(QStringLiteral("uomExportReportingDiagnostics"),
+                                                    QStringLiteral("ridManagementFlickable")));
+                        QTRY_COMPARE(manager->property("exportedPath").toUrl(), QUrl::fromLocalFile(path));
+                    });
 }

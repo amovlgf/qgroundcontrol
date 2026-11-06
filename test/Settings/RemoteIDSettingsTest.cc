@@ -31,6 +31,10 @@ void RemoteIDSettingsTest::init()
     _savedBasicID = settings->basicID()->rawValue();
     _savedBasicIDType = settings->basicIDType()->rawValue();
     _savedBasicIDUaType = settings->basicIDUaType()->rawValue();
+    _savedLatitudeFixed = settings->latitudeFixed()->rawValue();
+    _savedLongitudeFixed = settings->longitudeFixed()->rawValue();
+    _savedAltitudeFixed = settings->altitudeFixed()->rawValue();
+    _savedFixedPositionConfirmed = settings->fixedPositionConfirmed()->rawValue();
 }
 
 void RemoteIDSettingsTest::cleanup()
@@ -49,6 +53,10 @@ void RemoteIDSettingsTest::cleanup()
     settings->basicID()->setRawValue(_savedBasicID);
     settings->basicIDType()->setRawValue(_savedBasicIDType);
     settings->basicIDUaType()->setRawValue(_savedBasicIDUaType);
+    settings->latitudeFixed()->setRawValue(_savedLatitudeFixed);
+    settings->longitudeFixed()->setRawValue(_savedLongitudeFixed);
+    settings->altitudeFixed()->setRawValue(_savedAltitudeFixed);
+    settings->fixedPositionConfirmed()->setRawValue(_savedFixedPositionConfirmed);
 
     UnitTest::cleanup();
 }
@@ -313,3 +321,31 @@ void RemoteIDSettingsTest::_legacyOperatorIDMigration()
 }
 
 UT_REGISTER_TEST(RemoteIDSettingsTest, TestLabel::Unit)
+
+void RemoteIDSettingsTest::_fixedPositionConfirmation_data()
+{
+    QTest::addColumn<int>("coordinateIndex");
+    QTest::newRow("latitude") << 0;
+    QTest::newRow("longitude") << 1;
+    QTest::newRow("ellipsoid-altitude") << 2;
+}
+
+void RemoteIDSettingsTest::_fixedPositionConfirmation()
+{
+    QFETCH(int, coordinateIndex);
+    auto* settings = SettingsManager::instance()->remoteIDSettings();
+    QVERIFY(settings);
+    const QList<Fact*> coordinates{settings->latitudeFixed(), settings->longitudeFixed(), settings->altitudeFixed()};
+    for (Fact* coordinate : coordinates) {
+        coordinate->setRawValue(0.0);
+        QVERIFY(coordinate->validate(QStringLiteral("0"), false).isEmpty());
+    }
+    QVERIFY(!settings->fixedPositionConfirmed()->rawDefaultValue().toBool());
+    settings->fixedPositionConfirmed()->setRawValue(true);
+    QVERIFY(settings->fixedPositionConfirmed()->rawValue().toBool());
+    coordinates.at(coordinateIndex)->setRawValue(1.0);
+    QVERIFY(!settings->fixedPositionConfirmed()->rawValue().toBool());
+    settings->fixedPositionConfirmed()->setRawValue(true);
+    coordinates.at(coordinateIndex)->setRawValue(0.0);
+    QVERIFY(!settings->fixedPositionConfirmed()->rawValue().toBool());
+}

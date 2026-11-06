@@ -681,6 +681,16 @@ void VehicleRidManagerTest::_customerProfileUsesConnectedIdentity()
     if (!UomRegistrationProfile::customerBuild()) {
         QSKIP("Requires a B950 customer build");
     }
+    // A customer profile contains only a credential reference; this test has no deployed keyring secret.
+    const QByteArray oldBusAddress = qgetenv("DBUS_SESSION_BUS_ADDRESS");
+    const auto restoreBusAddress = qScopeGuard([&]() {
+        if (oldBusAddress.isNull()) {
+            qunsetenv("DBUS_SESSION_BUS_ADDRESS");
+        } else {
+            qputenv("DBUS_SESSION_BUS_ADDRESS", oldBusAddress);
+        }
+    });
+    qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent-qgc-uom-test-bus");
     QSettings settings;
     settings.beginGroup(QStringLiteral("UomRegistration"));
     const QVariantMap legacySettings{
@@ -712,7 +722,8 @@ void VehicleRidManagerTest::_customerProfileUsesConnectedIdentity()
     auto* vehicles = MultiVehicleManager::instance();
     const auto restoreActiveVehicle = qScopeGuard([&]() { vehicles->setActiveVehicle(vehicle()); });
     VehicleUomRegistrationManager registration(vehicle());
-    QTRY_VERIFY_WITH_TIMEOUT(registration.configured(), TestTimeout::mediumMs());
+    QTRY_VERIFY_WITH_TIMEOUT(!registration.busy(), TestTimeout::mediumMs());
+    QVERIFY(!registration.configured());
     QVERIFY(registration.customerProfile());
     QVERIFY(!registration.canVerify());
     QVERIFY(registration.productModel().isEmpty());
@@ -742,9 +753,18 @@ void VehicleRidManagerTest::_customerProfileUsesConnectedIdentity()
     QVERIFY(!registration.statusText().contains(QStringLiteral("Waiting to read")));
     peer.deviceSerial = serial;
     rid->refresh();
-    QTRY_VERIFY_WITH_TIMEOUT(registration.canVerify(), TestTimeout::mediumMs());
+    QTRY_VERIFY_WITH_TIMEOUT(rid->supported() && !rid->busy(), TestTimeout::mediumMs());
     QCOMPARE(rid->serial().toLatin1(), serial);
-    QVERIFY(registration.operationBlockReason().isEmpty());
+    QVERIFY(!registration.configured());
+    QVERIFY(!registration.canVerify());
+    QVERIFY(!registration.canActivate());
+    QVERIFY(!registration.canDeactivate());
+    QVERIFY(registration.operationBlockReason().contains(
+        QStringLiteral("Manufacturer connection configuration is unavailable")));
+    registration.verifyRegistration();
+    registration.activate();
+    QVERIFY(!registration.busy());
+    QVERIFY(!registration.pending());
     mockLink()->setArmed(true);
     QTRY_VERIFY_WITH_TIMEOUT(vehicle()->armed(), TestTimeout::mediumMs());
     QVERIFY(!registration.canActivate());
@@ -760,8 +780,12 @@ void VehicleRidManagerTest::_customerProfileUsesConnectedIdentity()
     QVERIFY(!registration.canVerify());
     peer.deviceSerial = QByteArray("ALABB950B950U4400002");
     rid->refresh();
-    QTRY_VERIFY_WITH_TIMEOUT(registration.canVerify(), TestTimeout::mediumMs());
+    QTRY_VERIFY_WITH_TIMEOUT(rid->supported() && !rid->busy(), TestTimeout::mediumMs());
     QCOMPARE(rid->serial().toLatin1(), peer.deviceSerial);
+    QVERIFY(!registration.configured());
+    QVERIFY(!registration.canVerify());
+    QVERIFY(registration.operationBlockReason().contains(
+        QStringLiteral("Manufacturer connection configuration is unavailable")));
     QCOMPARE(registration.registrationText(), QStringLiteral("Not verified"));
     QVERIFY(registration.lastVerifiedAt().isEmpty());
     QVERIFY(registration.lastReportedAt().isEmpty());

@@ -230,6 +230,8 @@ ApplicationWindow {
     readonly property int _skipUnsavedMissionCheckMask: 0x01
     readonly property int _skipPendingParameterWritesCheckMask: 0x02
     readonly property int _skipActiveConnectionsCheckMask: 0x04
+    readonly property int _skipPendingUomReportsCheckMask: 0x08
+    property bool _uomReportingPending: QGroundControl.uomReportingPending
     property int _closeChecksToSkip: 0
     property bool _reentrantCloseGuard: false
     function performCloseChecks() {
@@ -237,6 +239,9 @@ ApplicationWindow {
             return false
         }
         if (!(_closeChecksToSkip & _skipPendingParameterWritesCheckMask) && !checkForPendingParameterWrites()) {
+            return false
+        }
+        if (!(_closeChecksToSkip & _skipPendingUomReportsCheckMask) && !checkForPendingUomReports()) {
             return false
         }
         if (!(_closeChecksToSkip & _skipActiveConnectionsCheckMask) && !checkForActiveConnections()) {
@@ -270,7 +275,7 @@ ApplicationWindow {
 
     /// True when closing would show at least one close-check warning
     function _closeNeedsConfirmation() {
-        return _hasUnsavedMission() || _hasPendingParameterWrites() || _hasActiveConnections()
+        return _hasUnsavedMission() || _hasPendingParameterWrites() || _uomReportingPending || _hasActiveConnections()
     }
 
     function checkForUnsavedMission() {
@@ -297,6 +302,21 @@ ApplicationWindow {
                 qsTr("You have pending parameter updates to a vehicle. If you close you will lose changes. Are you sure you want to close?"),
                 Dialog.Yes | Dialog.No,
                 function() { accepted = true; _closeChecksToSkip |= _skipPendingParameterWritesCheckMask; performCloseChecks() },
+                function() { if (!accepted) _reentrantCloseGuard = false },
+                true /* bypassNavigationCheck */)
+            return false
+        }
+        return true
+    }
+
+    function checkForPendingUomReports() {
+        if (_uomReportingPending) {
+            let accepted = false
+            _reentrantCloseGuard = true
+            _showMessageDialogWorker(mainWindow, qsTr("Pending UOM Reports"),
+                qsTr("Saved UOM records still require delivery or review. Closing pauses automatic delivery of eligible reports until QGC is reopened. Are you sure you want to exit?"),
+                Dialog.Yes | Dialog.No,
+                function() { accepted = true; _closeChecksToSkip |= _skipPendingUomReportsCheckMask; performCloseChecks() },
                 function() { if (!accepted) _reentrantCloseGuard = false },
                 true /* bypassNavigationCheck */)
             return false
