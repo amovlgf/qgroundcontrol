@@ -4,10 +4,10 @@ endif()
 
 find_package(OpenSSL 1.1.1 REQUIRED COMPONENTS Crypto)
 
-option(QGC_B950_CUSTOMER_BUILD "Use manufacturer-managed B950 UOM configuration" OFF)
+option(QGC_B950_CUSTOMER_BUILD "Embed manufacturer-managed B950 UOM configuration and credential" OFF)
 set(QGC_B950_PROFILE_FILE
     ""
-    CACHE FILEPATH "Non-sensitive B950 manufacturer profile JSON file"
+    CACHE FILEPATH "Private B950 manufacturer profile JSON file containing the UOM credential"
 )
 set(_qgc_b950_profile_header "${CMAKE_CURRENT_BINARY_DIR}/UomRegistrationProfileData.h")
 if(QGC_B950_CUSTOMER_BUILD)

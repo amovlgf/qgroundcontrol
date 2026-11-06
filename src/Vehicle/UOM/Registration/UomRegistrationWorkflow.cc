@@ -63,15 +63,21 @@ UomRegistrationWorkflow::UomRegistrationWorkflow(UomRegistrationStore* store, Uo
 
 QString UomRegistrationWorkflow::keyReference() const
 {
-    return _customerProfile ? _customerCredentialReference : QStringLiteral("uom-registration/key/") + _config.scope();
+    return QStringLiteral("uom-registration/key/") + _config.scope();
+}
+
+QString UomRegistrationWorkflow::_key() const
+{
+    return _customerProfile ? _customerKey : (_credentials ? _credentials->value(keyReference()) : QString());
 }
 
 bool UomRegistrationWorkflow::configured() const
 {
-    return _store && _store->ready() && (_customerProfile ? _config.validProfile() : _config.valid()) && _credentials &&
-           !_credentials->value(keyReference()).isEmpty() && !_credentialBusy &&
-           (!_customerProfile || (_credentials->persistent(keyReference()) &&
-                                  UomRegistration::validKey(_credentials->value(keyReference()))));
+    if (!_store || !_store->ready() || !_credentials || _credentialBusy) {
+        return false;
+    }
+    return _customerProfile ? _config.validProfile() && UomRegistration::validKey(_customerKey)
+                            : _config.valid() && !_key().isEmpty();
 }
 
 bool UomRegistrationWorkflow::_eligible() const
@@ -194,6 +200,10 @@ QString UomRegistrationWorkflow::deviceActivationText() const
 
 QString UomRegistrationWorkflow::credentialStatus() const
 {
+    if (_customerProfile) {
+        return UomRegistration::validKey(_customerKey) ? tr("Manufacturer credentials are included in this build")
+                                                       : tr("UOM key is not configured");
+    }
     if (_credentialBusy) {
         return tr("Accessing credentials");
     }
@@ -291,33 +301,31 @@ bool UomRegistrationWorkflow::configure(const UomRegistration::Config& config, c
     return true;
 }
 
-bool UomRegistrationWorkflow::configureCustomerProfile(const UomRegistration::Config& config,
-                                                       const QString& credentialReference)
+bool UomRegistrationWorkflow::configureCustomerProfile(const UomRegistration::Config& config, const QString& keyId)
 {
-    static const QRegularExpression referencePattern(QStringLiteral("^uom-registration/key/[a-zA-Z0-9_.-]+$"));
+    QString normalizedKey = keyId.trimmed();
+    static const QRegularExpression uuidPattern(QStringLiteral("^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$"));
+    if (uuidPattern.match(normalizedKey).hasMatch()) {
+        normalizedKey.remove(u'-');
+    }
     if (_customerProfile || busy() || pending() || !_credentials || !config.validProfile() ||
-        config.environment != QStringLiteral("official") || credentialReference.size() > 160 ||
-        !referencePattern.match(credentialReference).hasMatch()) {
+        config.environment != QStringLiteral("official") || !UomRegistration::validKey(normalizedKey)) {
         return false;
     }
     _customerProfile = true;
-    _customerCredentialReference = credentialReference;
+    _customerKey = normalizedKey.toLower();
     _config = config;
     _config.expectedSerial.clear();
-    _credentialBusy = true;
-    _status = tr("Loading UOM credentials");
-    _credentials->getPersistent(keyReference());
+    _status = tr("Waiting to read the connected RID");
     emit changed();
     return true;
 }
 
 void UomRegistrationWorkflow::_credentialCompleted(const QString& reference, bool success)
 {
-    if (reference == keyReference()) {
+    if (!_customerProfile && reference == keyReference()) {
         _credentialBusy = false;
-        if (_customerProfile && !configured()) {
-            _status = tr("Manufacturer connection configuration is unavailable; contact the manufacturer");
-        } else if (!_busy && !_profileConflict) {
+        if (!_busy && !_profileConflict) {
             _status = _device.uid.isEmpty() ? tr("Waiting to read the connected RID")
                       : success ? (pending() ? tr("Pending transaction recovered; read the device and continue")
                                              : tr("UOM profile ready; registration has not been verified"))
@@ -581,7 +589,7 @@ void UomRegistrationWorkflow::_verify(bool reconcile)
     }
     _waiting = reconcile ? Waiting::Reconcile : Waiting::Verify;
     _status = reconcile ? tr("Checking whether deregistration already completed") : tr("Verifying UOM registration");
-    _client->send(++_requestId, _config, _credentials->value(keyReference()), Operation::Verify, _device.serial);
+    _client->send(++_requestId, _config, _key(), Operation::Verify, _device.serial);
     emit changed();
 }
 
@@ -648,7 +656,7 @@ void UomRegistrationWorkflow::_reportDevice()
     }
     _waiting = Waiting::Report;
     _status = tr("Reporting the verified device state to UOM");
-    _client->send(++_requestId, _config, _credentials->value(keyReference()),
+    _client->send(++_requestId, _config, _key(),
                   _device.state == 1 ? Operation::ReportActive : Operation::ReportInactive, _device.serial);
     emit changed();
 }
@@ -664,8 +672,8 @@ void UomRegistrationWorkflow::_cancelRegistration()
     }
     _waiting = Waiting::Cancel;
     _status = tr("Cancelling UOM registration");
-    _client->send(++_requestId, _config, _credentials->value(keyReference()), Operation::Cancel, _device.serial,
-                  _record->type, _record->reason, _credentials->value(_record->tokenReference));
+    _client->send(++_requestId, _config, _key(), Operation::Cancel, _device.serial, _record->type, _record->reason,
+                  _credentials->value(_record->tokenReference));
     emit changed();
 }
 

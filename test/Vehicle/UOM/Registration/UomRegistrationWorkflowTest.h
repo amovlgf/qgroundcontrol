@@ -42,8 +42,10 @@ private slots:
     void clearedIdentityRestoresOnlyHistory();
     void clearedIdentityPreservesPending_data();
     void clearedIdentityPreservesPending();
-    void customerProfileRequiresSecureCredential_data();
-    void customerProfileRequiresSecureCredential();
+    void customerProfileRequiresValidEmbeddedKey_data();
+    void customerProfileRequiresValidEmbeddedKey();
+    void customerProfileUsesReadIdentity_data();
     void customerProfileUsesReadIdentity();
+    void customerProfileRecoversWithoutKeyring();
     void customerProfileRejectsForeignPending();
 };

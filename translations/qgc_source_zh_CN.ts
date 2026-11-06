@@ -22963,6 +22963,10 @@ Source: %6 (session %7); destination: %8 (session %9)</translation>
       <translation>凭据已保存到系统密钥环</translation>
     </message>
     <message>
+      <source>Manufacturer credentials are included in this build</source>
+      <translation>厂家凭据已内置在此版本中</translation>
+    </message>
+    <message>
       <source>Credentials are kept for this session only; enter the key again after restarting QGC</source>
       <translation>凭据仅保存在本次运行内存中，重启 QGC 后请重新输入密钥</translation>
     </message>

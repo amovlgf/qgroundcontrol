@@ -131,8 +131,7 @@ QVariantMap VehicleUomRegistrationManager::configurationForEnvironment(const QSt
 void VehicleUomRegistrationManager::_loadConfiguration()
 {
     if (customerProfile()) {
-        _workflow.configureCustomerProfile(UomRegistrationProfile::config(),
-                                           UomRegistrationProfile::credentialReference());
+        _workflow.configureCustomerProfile(UomRegistrationProfile::config(), UomRegistrationProfile::keyId());
         return;
     }
     QSettings settings;

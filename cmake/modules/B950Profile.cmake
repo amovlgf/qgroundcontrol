@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-# Emits non-sensitive manufacturer settings; credentials are resolved from Secret Service at runtime.
+# Keep the private manufacturer profile and generated credential header out of version control.
 function(qgc_generate_b950_profile profile_file output_file)
     if(NOT ARGC EQUAL 2
        OR "${profile_file}" STREQUAL ""
@@ -22,7 +22,7 @@ function(qgc_generate_b950_profile profile_file output_file)
         message(FATAL_ERROR "B950 manufacturer profile requires exactly six configuration fields")
     endif()
 
-    foreach(_field IN ITEMS environment producerId credentialReference verifyUrl reportUrl cancelUrl)
+    foreach(_field IN ITEMS environment producerId keyId verifyUrl reportUrl cancelUrl)
         string(
             JSON
             _type
@@ -46,17 +46,21 @@ function(qgc_generate_b950_profile profile_file output_file)
     if(NOT _producer_shape STREQUAL "00000000-0000-0000-0000-000000000000")
         message(FATAL_ERROR "B950 manufacturer profile has an invalid producerId")
     endif()
-    string(LENGTH "${_profile_credentialReference}" _length)
-    if(_length GREATER 160 OR NOT _profile_credentialReference MATCHES "^uom-registration/key/[a-zA-Z0-9_.-]+$")
-        message(FATAL_ERROR "B950 manufacturer profile has an invalid credentialReference")
+    string(REGEX REPLACE "[0-9a-fA-F]" "0" _key_shape "${_profile_keyId}")
+    if(NOT _key_shape STREQUAL "00000000000000000000000000000000" AND NOT _key_shape STREQUAL
+                                                                      "00000000-0000-0000-0000-000000000000"
+    )
+        message(FATAL_ERROR "B950 manufacturer profile has an invalid keyId")
     endif()
+    string(REPLACE "-" "" _profile_keyId "${_profile_keyId}")
+    string(TOLOWER "${_profile_keyId}" _profile_keyId)
     foreach(_field IN ITEMS verifyUrl reportUrl cancelUrl)
         if(NOT "${_profile_${_field}}" MATCHES "^https://uom[.]caac[.]gov[.]cn(:443)?/[a-zA-Z0-9_./%-]+$")
             message(FATAL_ERROR "B950 manufacturer profile has an invalid ${_field}")
         endif()
     endforeach()
 
-    # Never pass credentials as compiler definitions or include them in this generated header.
+    # Use a private header so the key is absent from compiler command lines and the CMake cache.
     configure_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/B950ProfileData.h.in" "${output_file}" @ONLY FILE_PERMISSIONS
                    OWNER_READ OWNER_WRITE
     )

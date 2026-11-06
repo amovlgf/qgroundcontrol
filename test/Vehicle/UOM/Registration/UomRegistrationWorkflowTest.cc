@@ -25,7 +25,6 @@ namespace {
 const QString KEY = QStringLiteral("0123456789abcdeffedcba9876543210");
 const QString SERIAL = QStringLiteral("ALABB950B950U4400001");
 const QString UID = QStringLiteral("001122AABBCC");
-const QString CREDENTIAL_REFERENCE = QStringLiteral("uom-registration/key/b950-test");
 constexpr int TEST_TIMEOUT_MS = 3000;
 
 QByteArray resultBody(const QString& value, const QString& token = {})
@@ -1188,34 +1187,26 @@ void UomRegistrationWorkflowTest::clearedIdentityPreservesPending()
     QCOMPARE(h.writes, writes);
 }
 
-void UomRegistrationWorkflowTest::customerProfileRequiresSecureCredential_data()
+void UomRegistrationWorkflowTest::customerProfileRequiresValidEmbeddedKey_data()
 {
-    QTest::addColumn<QString>("storedValue");
-    QTest::addColumn<bool>("persistent");
-    QTest::newRow("missing") << QString() << false;
-    QTest::newRow("session-only") << KEY << false;
-    QTest::newRow("invalid-keyring-value") << QStringLiteral("invalid-key") << true;
+    QTest::addColumn<QString>("key");
+    QTest::newRow("missing") << QString();
+    QTest::newRow("short") << KEY.chopped(1);
+    QTest::newRow("long") << KEY + u'0';
+    QTest::newRow("non-hex") << QString(32, u'x');
+    QTest::newRow("keyring-reference") << QStringLiteral("uom-registration/key/b950-test");
 }
 
-void UomRegistrationWorkflowTest::customerProfileRequiresSecureCredential()
+void UomRegistrationWorkflowTest::customerProfileRequiresValidEmbeddedKey()
 {
-    QFETCH(QString, storedValue);
-    QFETCH(bool, persistent);
+    QFETCH(QString, key);
     QTemporaryDir directory;
     WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
-    if (!storedValue.isEmpty()) {
-        h.credentials._values.insert(CREDENTIAL_REFERENCE, storedValue);
-    }
-    if (persistent) {
-        h.credentials._persistent.insert(CREDENTIAL_REFERENCE);
-    }
     auto profile = config();
     profile.environment = QStringLiteral("official");
     profile.expectedSerial.clear();
-    QVERIFY(!h.workflow.configureCustomerProfile(profile, KEY));
-    QVERIFY(h.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
+    QVERIFY(!h.workflow.configureCustomerProfile(profile, key));
     h.workflow.observeDevice(h.device, true);
-    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
     QVERIFY(!h.workflow.configured());
     QVERIFY(!h.workflow.canVerify());
     QVERIFY(!h.workflow.canActivate());
@@ -1225,28 +1216,30 @@ void UomRegistrationWorkflowTest::customerProfileRequiresSecureCredential()
     h.workflow.activate();
     QVERIFY(h.network.requests.isEmpty());
     QCOMPARE(h.writes, 0);
-    if (!persistent) {
-        QVERIFY(h.credentials.value(CREDENTIAL_REFERENCE).isEmpty());
-    }
     QVERIFY(h.workflow.operationBlockReason().contains(QStringLiteral("contact the manufacturer")));
+}
+
+void UomRegistrationWorkflowTest::customerProfileUsesReadIdentity_data()
+{
+    QTest::addColumn<QString>("key");
+    QTest::newRow("hex") << KEY;
+    QTest::newRow("uuid") << QStringLiteral("01234567-89AB-CDEF-FEDC-BA9876543210");
 }
 
 void UomRegistrationWorkflowTest::customerProfileUsesReadIdentity()
 {
+    QFETCH(QString, key);
     QTemporaryDir directory;
     WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
     auto profile = config();
     profile.environment = QStringLiteral("official");
     profile.expectedSerial.clear();
-    // Simulate the cache populated by a successful Secret Service lookup.
-    h.credentials._values.insert(CREDENTIAL_REFERENCE, KEY);
-    h.credentials._persistent.insert(CREDENTIAL_REFERENCE);
-    QVERIFY(h.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
+    QVERIFY(h.workflow.configureCustomerProfile(profile, key));
     QTRY_VERIFY_WITH_TIMEOUT(h.workflow.configured(), TEST_TIMEOUT_MS);
     QVERIFY(!h.workflow.canVerify());
     QVERIFY(h.workflow.config().expectedSerial.isEmpty());
     QVERIFY(!h.workflow.configure(config(), KEY));
-    QVERIFY(!h.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
+    QVERIFY(!h.workflow.configureCustomerProfile(profile, key));
 
     for (const QString& serial : {SERIAL, QStringLiteral("ALABB950B950U4400002")}) {
         h.device.serial = serial;
@@ -1266,6 +1259,75 @@ void UomRegistrationWorkflowTest::customerProfileUsesReadIdentity()
     QCOMPARE(h.network.requests.size(), 2);
     QCOMPARE(h.writes, 0);
     QVERIFY(h.network.error.isEmpty());
+}
+
+void UomRegistrationWorkflowTest::customerProfileRecoversWithoutKeyring()
+{
+    QTemporaryDir directory;
+    const QString path = directory.filePath(QStringLiteral("registration.sqlite"));
+    auto profile = config();
+    profile.environment = QStringLiteral("official");
+    profile.expectedSerial.clear();
+    UomRegistrationDevice activatedDevice;
+    {
+        WorkflowHarness first(path);
+        first.network.plans = {{resultBody(QStringLiteral("0"))}, {.body = "unavailable", .status = 503}};
+        QVERIFY(first.workflow.configureCustomerProfile(profile, KEY));
+        first.workflow.observeDevice(first.device, true);
+        QVERIFY(first.workflow.canActivate());
+        first.workflow.activate();
+        QTRY_VERIFY_WITH_TIMEOUT(!first.workflow.busy(), TEST_TIMEOUT_MS);
+        QCOMPARE(first.workflow.registrationText(), QStringLiteral("Registered"));
+        QCOMPARE(first.device.state, 1);
+        QCOMPARE(first.writes, 1);
+        QCOMPARE(first.network.requests.size(), 2);
+        QCOMPARE(first.network.error, QString());
+        const auto pending = first.store.loadPendingForDevice(SERIAL, UID);
+        QVERIFY(pending);
+        QVERIFY(pending->deviceVerified);
+        QVERIFY(!pending->configJson.contains(KEY));
+        activatedDevice = first.device;
+        first.workflow.clearCurrentDevice();
+    }
+    {
+        WorkflowHarness restored(path, 1, 1060001);
+        restored.device = activatedDevice;
+        ++restored.device.generation;
+        restored.network.plans = {{resultBody(QStringLiteral("1"))},
+                                  {resultBody(QStringLiteral("2"), QStringLiteral("customer-cancellation-token"))},
+                                  {resultBody(QStringLiteral("3"))}};
+        QVERIFY(restored.workflow.configureCustomerProfile(profile, KEY));
+        restored.workflow.observeDevice(restored.device, true);
+        QVERIFY(restored.workflow.canRetry());
+        QVERIFY(restored.network.requests.isEmpty());
+        restored.workflow.retryPending();
+        QTRY_VERIFY_WITH_TIMEOUT(!restored.workflow.pending(), TEST_TIMEOUT_MS);
+        QCOMPARE(restored.workflow.deviceActivationText(), QStringLiteral("Activated"));
+        QCOMPARE(restored.workflow.reportText(), QStringLiteral("Activation report accepted"));
+        QVERIFY(!restored.workflow.lastReportedAt().isEmpty());
+        QCOMPARE(restored.writes, 0);
+
+        restored.now += 60001;
+        QVERIFY(restored.workflow.canDeactivate());
+        restored.workflow.deactivateAndCancel(QStringLiteral("3"), QStringLiteral("Ownership change"));
+        QTRY_VERIFY_WITH_TIMEOUT(!restored.workflow.busy(), TEST_TIMEOUT_MS);
+        QVERIFY(!restored.workflow.pending());
+        QCOMPARE(restored.workflow.registrationText(), QStringLiteral("Registration cancelled"));
+        QCOMPARE(restored.device.state, 0);
+        QCOMPARE(restored.writes, 1);
+        QCOMPARE(restored.network.requests.size(), 3);
+        QCOMPARE(restored.network.requests.last().payload.value(QStringLiteral("TOKEN")).toString(),
+                 QStringLiteral("customer-cancellation-token"));
+        QCOMPARE(restored.network.error, QString());
+        QCOMPARE(restored.error, QString());
+        QVERIFY(!restored.workflow.statusText().contains(KEY));
+        QVERIFY(!restored.workflow.credentialStatus().contains(KEY));
+    }
+    QFile database(path);
+    QVERIFY(database.open(QIODevice::ReadOnly));
+    const auto stored = database.readAll();
+    QVERIFY(!stored.contains(KEY.toLatin1()));
+    QVERIFY(!stored.contains("customer-cancellation-token"));
 }
 
 void UomRegistrationWorkflowTest::customerProfileRejectsForeignPending()
@@ -1289,9 +1351,7 @@ void UomRegistrationWorkflowTest::customerProfileRejectsForeignPending()
     auto profile = config();
     profile.environment = QStringLiteral("official");
     profile.expectedSerial.clear();
-    restored.credentials._values.insert(CREDENTIAL_REFERENCE, KEY);
-    restored.credentials._persistent.insert(CREDENTIAL_REFERENCE);
-    QVERIFY(restored.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
+    QVERIFY(restored.workflow.configureCustomerProfile(profile, KEY));
     restored.workflow.observeDevice(restored.device, true);
     QTRY_VERIFY_WITH_TIMEOUT(restored.workflow.configured(), TEST_TIMEOUT_MS);
     QVERIFY(restored.workflow.statusText().contains(QStringLiteral("contact the manufacturer")));

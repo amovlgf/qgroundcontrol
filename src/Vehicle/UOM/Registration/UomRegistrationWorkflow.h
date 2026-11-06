@@ -32,7 +32,7 @@ public:
                             UomRegistrationCredentials* credentials, QObject* parent = nullptr);
 
     bool configure(const UomRegistration::Config& config, const QString& keyId = {});
-    bool configureCustomerProfile(const UomRegistration::Config& config, const QString& credentialReference);
+    bool configureCustomerProfile(const UomRegistration::Config& config, const QString& keyId);
     void observeDevice(const UomRegistrationDevice& device, bool writable);
     void clearCurrentDevice();
     void interrupt();
@@ -123,6 +123,7 @@ private:
     bool _matchesRecord() const;
     bool _deviceConfirmed() const;
     bool _eligible() const;
+    QString _key() const;
     void _newRecord(const QString& kind);
     static QString _configJson(const UomRegistration::Config& config);
     static std::optional<UomRegistration::Config> _readConfig(const QString& json);
@@ -144,7 +145,7 @@ private:
     bool _credentialBusy = false;
     bool _writable = false;
     bool _customerProfile = false;
-    QString _customerCredentialReference;
+    QString _customerKey;
     bool _profileConflict = false;
     bool _explicitRetry = false;
     bool _reconcileAfterWrite = false;
