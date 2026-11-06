@@ -42,6 +42,8 @@ private slots:
     void clearedIdentityRestoresOnlyHistory();
     void clearedIdentityPreservesPending_data();
     void clearedIdentityPreservesPending();
+    void customerProfileRequiresSecureCredential_data();
+    void customerProfileRequiresSecureCredential();
     void customerProfileUsesReadIdentity();
     void customerProfileRejectsForeignPending();
 };

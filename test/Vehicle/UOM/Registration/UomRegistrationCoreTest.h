@@ -18,4 +18,5 @@ private slots:
     void cancellationHasNoHiddenSerialAndNoLateResult();
     void memoryCredentialsAreExplicitAndRemovable();
     void unavailableKeyringRetainsMemory();
+    void persistentRefreshDiscardsRemovedCredential();
 };

@@ -1,6 +1,6 @@
 include_guard(GLOBAL)
 
-# Validates a private manufacturer JSON profile and emits build-local C++ constants without logging its values.
+# Emits non-sensitive manufacturer settings; credentials are resolved from Secret Service at runtime.
 function(qgc_generate_b950_profile profile_file output_file)
     if(NOT ARGC EQUAL 2
        OR "${profile_file}" STREQUAL ""
@@ -9,7 +9,7 @@ function(qgc_generate_b950_profile profile_file output_file)
         message(FATAL_ERROR "qgc_generate_b950_profile: profile and output paths are required")
     endif()
     if(NOT EXISTS "${profile_file}" OR IS_DIRECTORY "${profile_file}")
-        message(FATAL_ERROR "B950 customer builds require a private manufacturer profile file")
+        message(FATAL_ERROR "B950 customer builds require a manufacturer profile file")
     endif()
 
     file(READ "${profile_file}" _profile)
@@ -22,7 +22,7 @@ function(qgc_generate_b950_profile profile_file output_file)
         message(FATAL_ERROR "B950 manufacturer profile requires exactly six configuration fields")
     endif()
 
-    foreach(_field IN ITEMS environment producerId keyId verifyUrl reportUrl cancelUrl)
+    foreach(_field IN ITEMS environment producerId credentialReference verifyUrl reportUrl cancelUrl)
         string(
             JSON
             _type
@@ -46,10 +46,9 @@ function(qgc_generate_b950_profile profile_file output_file)
     if(NOT _producer_shape STREQUAL "00000000-0000-0000-0000-000000000000")
         message(FATAL_ERROR "B950 manufacturer profile has an invalid producerId")
     endif()
-    string(REPLACE "-" "" _profile_keyId "${_profile_keyId}")
-    string(LENGTH "${_profile_keyId}" _length)
-    if(NOT _length EQUAL 32 OR NOT _profile_keyId MATCHES "^[0-9a-fA-F]+$")
-        message(FATAL_ERROR "B950 manufacturer profile has an invalid keyId")
+    string(LENGTH "${_profile_credentialReference}" _length)
+    if(_length GREATER 160 OR NOT _profile_credentialReference MATCHES "^uom-registration/key/[a-zA-Z0-9_.-]+$")
+        message(FATAL_ERROR "B950 manufacturer profile has an invalid credentialReference")
     endif()
     foreach(_field IN ITEMS verifyUrl reportUrl cancelUrl)
         if(NOT "${_profile_${_field}}" MATCHES "^https://uom[.]caac[.]gov[.]cn(:443)?/[a-zA-Z0-9_./%-]+$")
@@ -57,7 +56,7 @@ function(qgc_generate_b950_profile profile_file output_file)
         endif()
     endforeach()
 
-    # The generated data stays in the build tree; never pass credentials as compiler definitions.
+    # Never pass credentials as compiler definitions or include them in this generated header.
     configure_file("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/B950ProfileData.h.in" "${output_file}" @ONLY FILE_PERMISSIONS
                    OWNER_READ OWNER_WRITE
     )

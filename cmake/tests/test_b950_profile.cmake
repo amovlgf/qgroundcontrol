@@ -10,7 +10,7 @@ if(DEFINED TEST_CASE)
         [=[{
         "environment": "official",
         "producerId": "00000000-0000-0000-0000-000000000001",
-        "keyId": "00112233-4455-6677-8899-aabbccddeeff",
+        "credentialReference": "uom-registration/key/b950-official",
         "verifyUrl": "https://uom.caac.gov.cn/api/verify",
         "reportUrl": "https://uom.caac.gov.cn/api/report",
         "cancelUrl": "https://uom.caac.gov.cn/api/cancel"
@@ -21,13 +21,19 @@ if(DEFINED TEST_CASE)
     elseif(TEST_CASE STREQUAL "unknown-field")
         string(JSON _profile SET "${_profile}" unexpected "true")
     elseif(TEST_CASE STREQUAL "missing-field")
-        string(JSON _profile REMOVE "${_profile}" keyId)
+        string(JSON _profile REMOVE "${_profile}" credentialReference)
     elseif(TEST_CASE STREQUAL "environment")
         string(JSON _profile SET "${_profile}" environment "\"integration\"")
     elseif(TEST_CASE STREQUAL "producer")
         string(JSON _profile SET "${_profile}" producerId "\"invalid-secret-marker\"")
-    elseif(TEST_CASE STREQUAL "key")
-        string(JSON _profile SET "${_profile}" keyId "\"invalid-secret-marker\"")
+    elseif(TEST_CASE STREQUAL "legacy-key")
+        string(JSON _profile REMOVE "${_profile}" credentialReference)
+        string(JSON _profile SET "${_profile}" keyId "\"00112233-4455-6677-8899-aabbccddeeff\"")
+    elseif(TEST_CASE STREQUAL "reference")
+        string(JSON _profile SET "${_profile}" credentialReference "\"invalid-secret-marker\"")
+    elseif(TEST_CASE STREQUAL "long-reference")
+        string(REPEAT "x" 161 _long_reference)
+        string(JSON _profile SET "${_profile}" credentialReference "\"uom-registration/key/${_long_reference}\"")
     elseif(TEST_CASE STREQUAL "url")
         string(JSON _profile SET "${_profile}" verifyUrl "\"https://uom.caac.gov.cn.invalid/api/verify\"")
     elseif(TEST_CASE STREQUAL "url-query")
@@ -42,10 +48,13 @@ if(DEFINED TEST_CASE)
     endif()
     qgc_generate_b950_profile("${WORK_DIR}/profile.json" "${WORK_DIR}/profile.h")
     file(READ "${WORK_DIR}/profile.h" _generated)
-    if(NOT _generated MATCHES "KEY_ID\\[\\] = \"00112233445566778899aabbccddeeff\""
+    if(NOT _generated MATCHES "CREDENTIAL_REFERENCE\\[\\] = \"uom-registration/key/b950-official\""
        OR NOT _generated MATCHES "https://uom.caac.gov.cn/api/verify"
     )
         message(FATAL_ERROR "Generated profile does not contain the validated configuration")
+    endif()
+    if(_generated MATCHES "KEY_ID|00112233|invalid-secret-marker")
+        message(FATAL_ERROR "Generated manufacturer header contains credential material")
     endif()
     return()
 endif()
@@ -60,7 +69,9 @@ foreach(
           missing-field
           environment
           producer
-          key
+          legacy-key
+          reference
+          long-reference
           url
           url-query
           wrong-type

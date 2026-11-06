@@ -111,7 +111,11 @@ void UomRegistrationCredentials::put(const QString& reference, const QString& va
 void UomRegistrationCredentials::get(const QString& reference)
 {
     if (_values.contains(reference)) {
-        QTimer::singleShot(0, this, [this, reference]() {
+        const quint64 generation = _generations.value(reference);
+        QTimer::singleShot(0, this, [this, reference, generation]() {
+            if (_generations.value(reference) != generation) {
+                return;
+            }
             emit completed(reference, _values.contains(reference), persistent(reference),
                            persistent(reference) ? tr("Stored in the system keyring")
                                                  : tr("Stored in memory for this session only"));
@@ -121,17 +125,16 @@ void UomRegistrationCredentials::get(const QString& reference)
     _run(reference, {}, 1);
 }
 
-void UomRegistrationCredentials::putSession(const QString& reference, const QString& value)
+void UomRegistrationCredentials::getPersistent(const QString& reference, bool forceRefresh)
 {
-    const quint64 generation = ++_generations[reference];
-    _values.insert(reference, value);
+    if (!forceRefresh && persistent(reference)) {
+        get(reference);
+        return;
+    }
+    // Reloads must observe key rotation/removal; an old value cannot satisfy the secure-storage requirement.
+    _values.remove(reference);
     _persistent.remove(reference);
-    QTimer::singleShot(0, this, [this, reference, generation]() {
-        if (_generations.value(reference) == generation) {
-            emit completed(reference, !_values.value(reference).isEmpty(), false,
-                           tr("Stored in memory for this session only"));
-        }
-    });
+    _run(reference, {}, 1);
 }
 
 void UomRegistrationCredentials::remove(const QString& reference)

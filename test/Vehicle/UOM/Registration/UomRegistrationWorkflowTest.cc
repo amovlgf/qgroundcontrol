@@ -25,6 +25,7 @@ namespace {
 const QString KEY = QStringLiteral("0123456789abcdeffedcba9876543210");
 const QString SERIAL = QStringLiteral("ALABB950B950U4400001");
 const QString UID = QStringLiteral("001122AABBCC");
+const QString CREDENTIAL_REFERENCE = QStringLiteral("uom-registration/key/b950-test");
 constexpr int TEST_TIMEOUT_MS = 3000;
 
 QByteArray resultBody(const QString& value, const QString& token = {})
@@ -1187,6 +1188,49 @@ void UomRegistrationWorkflowTest::clearedIdentityPreservesPending()
     QCOMPARE(h.writes, writes);
 }
 
+void UomRegistrationWorkflowTest::customerProfileRequiresSecureCredential_data()
+{
+    QTest::addColumn<QString>("storedValue");
+    QTest::addColumn<bool>("persistent");
+    QTest::newRow("missing") << QString() << false;
+    QTest::newRow("session-only") << KEY << false;
+    QTest::newRow("invalid-keyring-value") << QStringLiteral("invalid-key") << true;
+}
+
+void UomRegistrationWorkflowTest::customerProfileRequiresSecureCredential()
+{
+    QFETCH(QString, storedValue);
+    QFETCH(bool, persistent);
+    QTemporaryDir directory;
+    WorkflowHarness h(directory.filePath(QStringLiteral("registration.sqlite")));
+    if (!storedValue.isEmpty()) {
+        h.credentials._values.insert(CREDENTIAL_REFERENCE, storedValue);
+    }
+    if (persistent) {
+        h.credentials._persistent.insert(CREDENTIAL_REFERENCE);
+    }
+    auto profile = config();
+    profile.environment = QStringLiteral("official");
+    profile.expectedSerial.clear();
+    QVERIFY(!h.workflow.configureCustomerProfile(profile, KEY));
+    QVERIFY(h.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
+    h.workflow.observeDevice(h.device, true);
+    QTRY_VERIFY_WITH_TIMEOUT(!h.workflow.busy(), TEST_TIMEOUT_MS);
+    QVERIFY(!h.workflow.configured());
+    QVERIFY(!h.workflow.canVerify());
+    QVERIFY(!h.workflow.canActivate());
+    QVERIFY(!h.workflow.canDeactivate());
+    QVERIFY(!h.workflow.canRetry());
+    h.workflow.verifyRegistration();
+    h.workflow.activate();
+    QVERIFY(h.network.requests.isEmpty());
+    QCOMPARE(h.writes, 0);
+    if (!persistent) {
+        QVERIFY(h.credentials.value(CREDENTIAL_REFERENCE).isEmpty());
+    }
+    QVERIFY(h.workflow.operationBlockReason().contains(QStringLiteral("contact the manufacturer")));
+}
+
 void UomRegistrationWorkflowTest::customerProfileUsesReadIdentity()
 {
     QTemporaryDir directory;
@@ -1194,12 +1238,15 @@ void UomRegistrationWorkflowTest::customerProfileUsesReadIdentity()
     auto profile = config();
     profile.environment = QStringLiteral("official");
     profile.expectedSerial.clear();
-    QVERIFY(h.workflow.configureCustomerProfile(profile, KEY));
+    // Simulate the cache populated by a successful Secret Service lookup.
+    h.credentials._values.insert(CREDENTIAL_REFERENCE, KEY);
+    h.credentials._persistent.insert(CREDENTIAL_REFERENCE);
+    QVERIFY(h.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
     QTRY_VERIFY_WITH_TIMEOUT(h.workflow.configured(), TEST_TIMEOUT_MS);
     QVERIFY(!h.workflow.canVerify());
     QVERIFY(h.workflow.config().expectedSerial.isEmpty());
     QVERIFY(!h.workflow.configure(config(), KEY));
-    QVERIFY(!h.workflow.configureCustomerProfile(profile, KEY));
+    QVERIFY(!h.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
 
     for (const QString& serial : {SERIAL, QStringLiteral("ALABB950B950U4400002")}) {
         h.device.serial = serial;
@@ -1242,7 +1289,9 @@ void UomRegistrationWorkflowTest::customerProfileRejectsForeignPending()
     auto profile = config();
     profile.environment = QStringLiteral("official");
     profile.expectedSerial.clear();
-    QVERIFY(restored.workflow.configureCustomerProfile(profile, KEY));
+    restored.credentials._values.insert(CREDENTIAL_REFERENCE, KEY);
+    restored.credentials._persistent.insert(CREDENTIAL_REFERENCE);
+    QVERIFY(restored.workflow.configureCustomerProfile(profile, CREDENTIAL_REFERENCE));
     restored.workflow.observeDevice(restored.device, true);
     QTRY_VERIFY_WITH_TIMEOUT(restored.workflow.configured(), TEST_TIMEOUT_MS);
     QVERIFY(restored.workflow.statusText().contains(QStringLiteral("contact the manufacturer")));

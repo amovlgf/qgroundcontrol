@@ -507,6 +507,46 @@ void UomRegistrationCoreTest::unavailableKeyringRetainsMemory()
     QVERIFY(completed.at(0).at(1).toBool());
     QVERIFY(!credentials.persistent(QStringLiteral("qgc-uom-unit-test-unavailable-keyring")));
     QCOMPARE(credentials.value(QStringLiteral("qgc-uom-unit-test-unavailable-keyring")), KEY);
+    credentials.getPersistent(QStringLiteral("qgc-uom-unit-test-unavailable-keyring"));
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 2, 12000);
+    QVERIFY(!completed.at(1).at(1).toBool());
+    QVERIFY(!completed.at(1).at(2).toBool());
+    QVERIFY(credentials.value(QStringLiteral("qgc-uom-unit-test-unavailable-keyring")).isEmpty());
+}
+
+void UomRegistrationCoreTest::persistentRefreshDiscardsRemovedCredential()
+{
+    // Model a key previously read securely, then a removed/unavailable Secret Service entry.
+    UomRegistrationCredentials credentials(nullptr, true);
+    const QString reference = QStringLiteral("qgc-uom-unit-test-refresh");
+    credentials._values.insert(reference, KEY);
+    credentials._persistent.insert(reference);
+    QSignalSpy completed(&credentials, &UomRegistrationCredentials::completed);
+    credentials.getPersistent(reference);
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 2000);
+    QVERIFY(completed.last().at(1).toBool());
+    QVERIFY(completed.last().at(2).toBool());
+    QCOMPARE(credentials.value(reference), KEY);
+
+    // A queued cached lookup must not report success after a forced refresh invalidates it.
+    completed.clear();
+    credentials.getPersistent(reference);
+    credentials.getPersistent(reference, true);
+    QVERIFY(credentials.value(reference).isEmpty());
+    QVERIFY(!credentials.persistent(reference));
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 2000);
+    QVERIFY(!completed.last().at(1).toBool());
+    QVERIFY(!completed.last().at(2).toBool());
+    QVERIFY(credentials.value(reference).isEmpty());
+
+    // Likewise, an earlier asynchronous write cannot restore a superseded value.
+    completed.clear();
+    credentials.put(reference, QStringLiteral("00112233445566778899aabbccddeeff"));
+    credentials.getPersistent(reference, true);
+    QTRY_COMPARE_WITH_TIMEOUT(completed.count(), 1, 2000);
+    QVERIFY(!completed.last().at(1).toBool());
+    QVERIFY(!credentials.persistent(reference));
+    QVERIFY(credentials.value(reference).isEmpty());
 }
 
 QTEST_GUILESS_MAIN(UomRegistrationCoreTest)

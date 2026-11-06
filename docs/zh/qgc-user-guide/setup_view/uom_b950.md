@@ -29,7 +29,7 @@ QGC 使用方式二直接连接民航局 UOM，完成实名状态核验、激活
 | 注销登记 | `https://uom.caac.gov.cn/api/uom-uavreg/eqgb/openapi/cancelRegisterFactory` |
 
 密钥不显示在页面中，不写入普通设置或日志。保存时留空表示保留所选环境已经保存的密钥。
-Linux 使用系统 Secret Service（libsecret）密钥环。页面会显示当前密钥存储状态；如果系统密钥环不可用，只在本次运行中保留密钥，重新启动后需要重新输入。
+开发/联调版本使用系统 Secret Service（libsecret）密钥环，页面会显示当前密钥存储状态；系统密钥环不可用时，明确保留在本次运行的内存中，重新启动后需要重新输入。客户构建必须使用密钥环，不接受会话内存或明文配置回退。
 没有有效凭据时不会发起官方接口请求。
 
 ## 状态与操作
@@ -73,7 +73,26 @@ Linux 使用系统 Secret Service（libsecret）密钥环。页面会显示当�
 完成 B950 全部联调步骤、提交符合性声明并审核通过后，由单位管理员在 UOM 创建正式接入配置。
 正式环境使用独立接口地址和密钥；必须填写平台实际提供的地址，不能把联调地址当作正式地址。
 QGC 将联调与正式环境的凭据、核验结果和待处理操作分开保存。
-厂家交付客户版本时预置正式配置，并负责后续维护；客户读取本机 RID 后即可执行实名核验和激活，重启 QGC 后不应要求客户重新填写接入信息。
+厂家交付客户版本时预置非敏感正式配置，并在交付电脑当前 Linux 用户的 Secret Service 密钥环中配置登记凭据。客户读取本机 RID 后即可执行实名核验和激活，重启 QGC 后不应要求客户重新填写接入信息。
+
+客户构建使用 `QGC_B950_CUSTOMER_BUILD=ON` 和 `QGC_B950_PROFILE_FILE` 指定的 JSON 配置，其字段为：
+
+```json
+{
+  "environment": "official",
+  "producerId": "00000000-0000-0000-0000-000000000001",
+  "credentialReference": "uom-registration/key/b950-official",
+  "verifyUrl": "https://uom.caac.gov.cn/api/verify",
+  "reportUrl": "https://uom.caac.gov.cn/api/report",
+  "cancelUrl": "https://uom.caac.gov.cn/api/cancel"
+}
+```
+
+以上 ID 和路径仅为结构示例，不能直接用于官方接入。构建配置禁止 `keyId` 或其他密钥字段；生成头文件与可执行程序仅包含凭据引用。
+引用须匹配 `uom-registration/key/[a-zA-Z0-9_.-]+`，总长度不超过 160 个字符。Secret Service 使用 schema
+`org.mavlink.qgroundcontrol.uom`、字符串属性 `reference` 匹配此引用；密钥值由厂家在交付流程中安全部署为 32 位十六进制 SM4 密钥，禁止通过命令行参数、仓库、普通配置或日志传递。
+客户构建读取该凭据后仅在当前进程中使用；缺少 libsecret、密钥环不可用或未解锁、凭据不存在或格式无效时，登记操作禁用。
+更换电脑或 Linux 用户时必须重新完成密钥环部署。登记凭据与飞行报送凭据分别维护，不能互相代用。
 
 验收应覆盖：身份不匹配、未登记、已注销、登记正常但设备尚未激活、激活设备确认失败、上报超时、注销中断、重启恢复，以及更换飞机时状态不串用。
 完整设备验收还应验证首次未激活和取消激活后的禁止飞行、激活后的重启保持、固件更新后功能保持。
@@ -120,4 +139,4 @@ QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software LIBGL_ALWAYS_SOFTWARE=1 \
 
 当前工作区的详细检查命令及日志保存在 `.cache/uom-verification/`。
 构建验证用的 libsecret 开发包位于本地缓存；交付 Linux 安装包仍须包含对应运行库或声明系统依赖。
-系统密钥环的真实读写和官方接口验收须在具备 Secret Service、联调凭据及 B950 实机的环境执行；已验证密钥环不可用时的内存降级路径。
+系统密钥环的真实读写和官方接口验收须在具备 Secret Service、联调凭据及 B950 实机的环境执行；开发/联调版本保留显式内存模式；客户构建还须验证密钥环不可用时保持禁用，且不能使用开发版会话值。

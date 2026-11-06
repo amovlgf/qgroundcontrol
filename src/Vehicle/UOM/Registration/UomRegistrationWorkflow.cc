@@ -63,13 +63,15 @@ UomRegistrationWorkflow::UomRegistrationWorkflow(UomRegistrationStore* store, Uo
 
 QString UomRegistrationWorkflow::keyReference() const
 {
-    return QStringLiteral("uom-registration/key/") + _config.scope();
+    return _customerProfile ? _customerCredentialReference : QStringLiteral("uom-registration/key/") + _config.scope();
 }
 
 bool UomRegistrationWorkflow::configured() const
 {
     return _store && _store->ready() && (_customerProfile ? _config.validProfile() : _config.valid()) && _credentials &&
-           !_credentials->value(keyReference()).isEmpty() && !_credentialBusy;
+           !_credentials->value(keyReference()).isEmpty() && !_credentialBusy &&
+           (!_customerProfile || (_credentials->persistent(keyReference()) &&
+                                  UomRegistration::validKey(_credentials->value(keyReference()))));
 }
 
 bool UomRegistrationWorkflow::_eligible() const
@@ -289,24 +291,22 @@ bool UomRegistrationWorkflow::configure(const UomRegistration::Config& config, c
     return true;
 }
 
-bool UomRegistrationWorkflow::configureCustomerProfile(const UomRegistration::Config& config, const QString& keyId)
+bool UomRegistrationWorkflow::configureCustomerProfile(const UomRegistration::Config& config,
+                                                       const QString& credentialReference)
 {
+    static const QRegularExpression referencePattern(QStringLiteral("^uom-registration/key/[a-zA-Z0-9_.-]+$"));
     if (_customerProfile || busy() || pending() || !_credentials || !config.validProfile() ||
-        config.environment != QStringLiteral("official")) {
-        return false;
-    }
-    QString key = keyId.trimmed();
-    key.remove(u'-');
-    if (!UomRegistration::validKey(key)) {
+        config.environment != QStringLiteral("official") || credentialReference.size() > 160 ||
+        !referencePattern.match(credentialReference).hasMatch()) {
         return false;
     }
     _customerProfile = true;
+    _customerCredentialReference = credentialReference;
     _config = config;
     _config.expectedSerial.clear();
     _credentialBusy = true;
-    _status = tr("Waiting to read the connected RID");
-    _credentials->putSession(keyReference(), key);
-    key.fill(QChar(0));
+    _status = tr("Loading UOM credentials");
+    _credentials->getPersistent(keyReference());
     emit changed();
     return true;
 }
@@ -315,7 +315,9 @@ void UomRegistrationWorkflow::_credentialCompleted(const QString& reference, boo
 {
     if (reference == keyReference()) {
         _credentialBusy = false;
-        if (!_busy && !_profileConflict) {
+        if (_customerProfile && !configured()) {
+            _status = tr("Manufacturer connection configuration is unavailable; contact the manufacturer");
+        } else if (!_busy && !_profileConflict) {
             _status = _device.uid.isEmpty() ? tr("Waiting to read the connected RID")
                       : success ? (pending() ? tr("Pending transaction recovered; read the device and continue")
                                              : tr("UOM profile ready; registration has not been verified"))

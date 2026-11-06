@@ -26,10 +26,10 @@ UomRegistration::Config UomRegistrationProfile::config()
     return config;
 }
 
-QString UomRegistrationProfile::key()
+QString UomRegistrationProfile::credentialReference()
 {
 #ifdef QGC_B950_CUSTOMER_BUILD
-    return QString::fromLatin1(B950ProfileData::KEY_ID);
+    return QString::fromLatin1(B950ProfileData::CREDENTIAL_REFERENCE);
 #else
     return {};
 #endif
